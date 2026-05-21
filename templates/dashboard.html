@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - Hospital Triage System{% endblock %}
+{% block title %}{{ t('dashboard_title') }}{% endblock %}
 
 {% block content %}
 <div class="row mb-4">
     <div class="col-12">
-        <h1 class="h3"><i class="bi bi-speedometer2"></i> Dashboard</h1>
-        <p class="text-muted">Real-time hospital overview and status</p>
+        <h1 class="h3"><i class="bi bi-speedometer2"></i> {{ t('dashboard_title') }}</h1>
+        <p class="text-muted">{{ t('dashboard_subtitle') }}</p>
     </div>
 </div>
 
@@ -17,7 +17,7 @@
             <div class="card-body">
                 <div class="row no-gutters align-items-center">
                     <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Patients</div>
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">{{ t('stat_total_patients') }}</div>
                         <div class="h5 mb-0 font-weight-bold text-gray-800" id="stat-total-patients">{{ stats.total_patients }}</div>
                     </div>
                     <div class="col-auto">
@@ -33,7 +33,7 @@
             <div class="card-body">
                 <div class="row no-gutters align-items-center">
                     <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Available Doctors</div>
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">{{ t('stat_available_doctors') }}</div>
                         <div class="h5 mb-0 font-weight-bold text-gray-800" id="stat-available-doctors">{{ stats.available_doctors }}</div>
                     </div>
                     <div class="col-auto">
@@ -49,7 +49,7 @@
             <div class="card-body">
                 <div class="row no-gutters align-items-center">
                     <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Waiting Queue</div>
+                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">{{ t('stat_waiting_queue') }}</div>
                         <div class="h5 mb-0 font-weight-bold text-gray-800" id="stat-waiting-queue">{{ stats.waiting_queue }}</div>
                     </div>
                     <div class="col-auto">
@@ -65,7 +65,7 @@
             <div class="card-body">
                 <div class="row no-gutters align-items-center">
                     <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Emergency</div>
+                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">{{ t('stat_emergency') }}</div>
                         <div class="h5 mb-0 font-weight-bold text-gray-800" id="stat-emergency">{{ stats.emergency_patients }}</div>
                     </div>
                     <div class="col-auto">
@@ -82,7 +82,7 @@
     <div class="col-12">
         <div class="card shadow">
             <div class="card-header py-3 d-flex justify-content-between align-items-center">
-                <h6 class="m-0 font-weight-bold text-primary">Department Status</h6>
+                <h6 class="m-0 font-weight-bold text-primary">{{ t('dept_status') }}</h6>
                 <span class="badge bg-primary">Auto-refresh: 30s</span>
             </div>
             <div class="card-body">
@@ -90,14 +90,14 @@
                     <table class="table table-bordered" id="dept-status-table" width="100%" cellspacing="0">
                         <thead>
                             <tr>
-                                <th>Department</th>
+                                <th>{{ t('doctors_department') }}</th>
                                 <th>Capacity</th>
-                                <th>Current</th>
-                                <th>Waiting</th>
-                                <th>In Progress</th>
-                                <th>Available Doctors</th>
-                                <th>Utilization</th>
-                                <th>Status</th>
+                                <th>{{ t('dept_current') }}</th>
+                                <th>{{ t('dept_waiting') }}</th>
+                                <th>{{ t('dept_in_progress') }}</th>
+                                <th>Available {{ t('nav_doctors') }}</th>
+                                <th>{{ t('dept_utilization') }}</th>
+                                <th>{{ t('dept_status') }}</th>
                             </tr>
                         </thead>
                         <tbody id="dept-status-body">
@@ -128,9 +128,9 @@
                                     {% if dept.queue_length > 10 %}
                                         <span class="badge bg-danger">Overloaded</span>
                                     {% elif dept.available_doctors == 0 %}
-                                        <span class="badge bg-warning">No Doctors</span>
+                                        <span class="badge bg-warning">No {{ t('nav_doctors') }}</span>
                                     {% else %}
-                                        <span class="badge bg-success">Normal</span>
+                                        <span class="badge bg-success">{{ t('checkin_normal') }}</span>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -148,7 +148,7 @@
     <div class="col-lg-8">
         <div class="card shadow mb-4">
             <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold text-primary">Doctor Status</h6>
+                <h6 class="m-0 font-weight-bold text-primary">Doctor {{ t('dept_status') }}</h6>
             </div>
             <div class="card-body">
                 <div class="row" id="doctor-status-cards">
@@ -193,24 +193,24 @@
     <div class="col-lg-4">
         <div class="card shadow mb-4">
             <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold text-primary">Quick Actions</h6>
+                <h6 class="m-0 font-weight-bold text-primary">Quick {{ t('table_actions') }}</h6>
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
                     <a href="{{ url_for('checkin') }}" class="btn btn-primary">
-                        <i class="bi bi-clipboard-check"></i> Patient Check-In
+                        <i class="bi bi-clipboard-check"></i> Patient {{ t('nav_checkin') }}
                     </a>
                     <a href="{{ url_for('patients') }}" class="btn btn-success">
-                        <i class="bi bi-person-plus"></i> New Patient
+                        <i class="bi bi-person-plus"></i> New {{ t('appointments_patient') }}
                     </a>
                     <a href="{{ url_for('appointments') }}" class="btn btn-info">
-                        <i class="bi bi-calendar-plus"></i> Book Appointment
+                        <i class="bi bi-calendar-plus"></i> {{ t('appointments_add') }}
                     </a>
                     <a href="{{ url_for('billing') }}" class="btn btn-warning">
                         <i class="bi bi-receipt"></i> Generate Bill
                     </a>
                     <a href="{{ url_for('examination') }}" class="btn btn-secondary">
-                        <i class="bi bi-heart-pulse"></i> Start Examination
+                        <i class="bi bi-heart-pulse"></i> Start {{ t('nav_examination') }}
                     </a>
                 </div>
             </div>
@@ -240,7 +240,7 @@ setInterval(function() {
                 const statusClass = dept.queue_length > 10 ? 'bg-danger' : 
                                   dept.available_doctors === 0 ? 'bg-warning' : 'bg-success';
                 const statusText = dept.queue_length > 10 ? 'Overloaded' : 
-                                 dept.available_doctors === 0 ? 'No Doctors' : 'Normal';
+                                 dept.available_doctors === 0 ? 'No {{ t('nav_doctors') }}' : 'Normal';
                 
                 const progressClass = dept.utilization < 50 ? 'bg-success' : 
                                     dept.utilization < 80 ? 'bg-warning' : 'bg-danger';
@@ -286,14 +286,14 @@ setInterval(function() {
             }
             
             // Update timestamp
-            document.getElementById('last-updated').textContent = new Date().toLocaleString();
+            document.getElementById('last-updated').textContent = new {{ t('appointments_date') }}().toLocaleString();
         })
         .catch(error => console.error('Error refreshing dashboard:', error));
 }, 30000);
 
 // Update clock every minute
 setInterval(function() {
-    const now = new Date();
+    const now = new {{ t('appointments_date') }}();
     document.getElementById('current-time').textContent = now.toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit'

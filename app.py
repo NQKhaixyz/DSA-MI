@@ -7,6 +7,7 @@ from flask import (
     redirect,
     url_for,
     Response,
+    session,
 )
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
@@ -14,12 +15,65 @@ import json
 import random
 import os
 
+# Import translations
+from translations import get_translation, get_available_languages, t as translate
+
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "hospital-triage-secret-key-2024"
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///hospital.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
+
+# ==================== I18N SETUP ====================
+
+
+@app.before_request
+def set_language():
+    """Set language from URL param, session, or browser header."""
+    # Check URL parameter first
+    lang = request.args.get("lang")
+    if lang and lang in ["en", "vi"]:
+        session["lang"] = lang
+        return
+
+    # Check session
+    if "lang" in session:
+        return
+
+    # Check browser Accept-Language header
+    browser_lang = request.accept_languages.best_match(["vi", "en"])
+    session["lang"] = browser_lang if browser_lang else "vi"
+
+
+@app.context_processor
+def inject_translations():
+    """Inject translation function into all templates."""
+
+    def t(key):
+        return translate(key, session.get("lang", "vi"))
+
+    return dict(
+        t=t,
+        current_lang=session.get("lang", "vi"),
+        available_languages=get_available_languages(),
+    )
+
+
+@app.route("/set_language/<lang>")
+def set_language_route(lang):
+    """Switch language and redirect back."""
+    if lang in ["en", "vi"]:
+        session["lang"] = lang
+        flash(
+            f"Language switched to {get_available_languages()[0 if lang == 'vi' else 1]['name']}",
+            "success",
+        )
+
+    # Redirect back to referring page or dashboard
+    next_page = request.referrer or url_for("dashboard")
+    return redirect(next_page)
+
 
 # ==================== DATABASE MODELS ====================
 
@@ -313,20 +367,23 @@ def get_department_status():
             department_id=dept.id, status="available"
         ).count()
 
+        queue_length = waiting + in_progress
+        utilization = (
+            round((queue_length / dept.capacity * 100), 1) if dept.capacity > 0 else 0
+        )
+
         status.append(
             {
                 "id": dept.id,
                 "name": dept.name,
                 "code": dept.code,
                 "capacity": dept.capacity,
-                "current_patients": dept.current_patients,
+                "current_patients": queue_length,
                 "waiting": waiting,
                 "in_progress": in_progress,
                 "available_doctors": available_doctors,
-                "queue_length": waiting + in_progress,
-                "utilization": round((dept.current_patients / dept.capacity * 100), 1)
-                if dept.capacity > 0
-                else 0,
+                "queue_length": queue_length,
+                "utilization": utilization,
             }
         )
     return status

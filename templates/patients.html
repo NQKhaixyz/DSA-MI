@@ -5,15 +5,15 @@
 {% block content %}
 <div class="row mb-4">
     <div class="col-md-6">
-        <h1 class="h3"><i class="bi bi-people"></i> Patients</h1>
+        <h1 class="h3"><i class="bi bi-people"></i> {{ t('nav_patients') }}</h1>
         <p class="text-muted">Manage patient records and information</p>
     </div>
     <div class="col-md-6 text-md-end">
         <a href="#" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addPatientModal">
-            <i class="bi bi-person-plus"></i> Add New Patient
+            <i class="bi bi-person-plus"></i> Add New {{ t('appointments_patient') }}
         </a>
         <a href="/api/patients/export/csv" class="btn btn-outline-primary">
-            <i class="bi bi-download"></i> Export CSV
+            <i class="bi bi-download"></i> {{ t('common_export') }} CSV
         </a>
     </div>
 </div>
@@ -33,7 +33,7 @@
                     </div>
                     <div class="col-md-3">
                         <select class="form-select" name="status">
-                            <option value="">All Status</option>
+                            <option value="">All {{ t('dept_status') }}</option>
                             <option value="active" {{ 'selected' if status_filter == 'active' else '' }}>Active</option>
                             <option value="discharged" {{ 'selected' if status_filter == 'discharged' else '' }}>Discharged</option>
                             <option value="emergency" {{ 'selected' if status_filter == 'emergency' else '' }}>Emergency</option>
@@ -41,7 +41,7 @@
                     </div>
                     <div class="col-md-3">
                         <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-funnel"></i> Filter
+                            <i class="bi bi-funnel"></i> {{ t('common_filter') }}
                         </button>
                         <a href="{{ url_for('patients') }}" class="btn btn-outline-secondary">Clear</a>
                     </div>
@@ -56,21 +56,21 @@
     <div class="col-12">
         <div class="card shadow">
             <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold text-primary">Patient List</h6>
+                <h6 class="m-0 font-weight-bold text-primary">{{ t('patients_list') }}</h6>
             </div>
             <div class="card-body">
                 <div class="table-responsive">
                     <table class="table table-striped table-hover" id="patientsTable">
                         <thead class="table-dark">
                             <tr>
-                                <th>ID</th>
-                                <th>Name</th>
+                                <th>{{ t('table_id') }}</th>
+                                <th>{{ t('patients_name') }}</th>
                                 <th>Contact</th>
                                 <th>Blood Type</th>
-                                <th>Status</th>
-                                <th>Priority</th>
+                                <th>{{ t('dept_status') }}</th>
+                                <th>{{ t('patients_priority') }}</th>
                                 <th>Registered</th>
-                                <th>Actions</th>
+                                <th>{{ t('table_actions') }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -100,13 +100,13 @@
                                     </td>
                                     <td>
                                         {% if patient.priority == 1 %}
-                                            <span class="badge bg-danger">Critical</span>
+                                            <span class="badge bg-danger">{{ t('checkin_critical') }}</span>
                                         {% elif patient.priority == 2 %}
-                                            <span class="badge bg-warning">Urgent</span>
+                                            <span class="badge bg-warning">{{ t('checkin_urgent') }}</span>
                                         {% elif patient.priority == 3 %}
-                                            <span class="badge bg-info">Normal</span>
+                                            <span class="badge bg-info">{{ t('checkin_normal') }}</span>
                                         {% else %}
-                                            <span class="badge bg-secondary">Low</span>
+                                            <span class="badge bg-secondary">{{ t('checkin_low') }}</span>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -136,7 +136,7 @@
                                 <tr>
                                     <td colspan="8" class="text-center py-4">
                                         <i class="bi bi-inbox fs-1 text-muted"></i>
-                                        <p class="text-muted mt-2">No patients found</p>
+                                        <p class="text-muted mt-2">{{ t('common_no') }} patients found</p>
                                     </td>
                                 </tr>
                             {% endif %}
@@ -150,7 +150,7 @@
                     <ul class="pagination justify-content-center">
                         {% if patients.has_prev %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('patients', page=patients.prev_num, search=search, status=status_filter) }}">Previous</a>
+                            <a class="page-link" href="{{ url_for('patients', page=patients.prev_num, search=search, status=status_filter) }}">{{ t('common_previous') }}</a>
                         </li>
                         {% endif %}
                         
@@ -170,7 +170,7 @@
                         
                         {% if patients.has_next %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('patients', page=patients.next_num, search=search, status=status_filter) }}">Next</a>
+                            <a class="page-link" href="{{ url_for('patients', page=patients.next_num, search=search, status=status_filter) }}">{{ t('common_next') }}</a>
                         </li>
                         {% endif %}
                     </ul>
@@ -186,49 +186,49 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="addPatientModalLabel">Add New Patient</h5>
+                <h5 class="modal-title" id="addPatientModalLabel">Add New {{ t('appointments_patient') }}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <form id="addPatientForm" onsubmit="return submitPatientForm(event)">
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="first_name" class="form-label">First Name *</label>
+                            <label for="first_name" class="form-label">First {{ t('patients_name') }} *</label>
                             <input type="text" class="form-control" id="first_name" name="first_name" required>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="last_name" class="form-label">Last Name *</label>
+                            <label for="last_name" class="form-label">Last {{ t('patients_name') }} *</label>
                             <input type="text" class="form-control" id="last_name" name="last_name" required>
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="email" class="form-label">Email</label>
+                            <label for="email" class="form-label">{{ t('patients_email') }}</label>
                             <input type="email" class="form-control" id="email" name="email">
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="phone" class="form-label">Phone</label>
+                            <label for="phone" class="form-label">{{ t('patients_phone') }}</label>
                             <input type="tel" class="form-control" id="phone" name="phone">
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-md-4 mb-3">
-                            <label for="date_of_birth" class="form-label">Date of Birth</label>
+                            <label for="date_of_birth" class="form-label">{{ t('appointments_date') }} of Birth</label>
                             <input type="date" class="form-control" id="date_of_birth" name="date_of_birth">
                         </div>
                         <div class="col-md-4 mb-3">
-                            <label for="gender" class="form-label">Gender</label>
+                            <label for="gender" class="form-label">{{ t('patients_gender') }}</label>
                             <select class="form-select" id="gender" name="gender">
-                                <option value="">Select</option>
-                                <option value="Male">Male</option>
-                                <option value="Female">Female</option>
-                                <option value="Other">Other</option>
+                                <option value="">{{ t('common_select') }}</option>
+                                <option value="Male">{{ t('gender_male') }}</option>
+                                <option value="Female">{{ t('gender_female') }}</option>
+                                <option value="Other">{{ t('gender_other') }}</option>
                             </select>
                         </div>
                         <div class="col-md-4 mb-3">
                             <label for="blood_type" class="form-label">Blood Type</label>
                             <select class="form-select" id="blood_type" name="blood_type">
-                                <option value="">Select</option>
+                                <option value="">{{ t('common_select') }}</option>
                                 <option value="A+">A+</option>
                                 <option value="A-">A-</option>
                                 <option value="B+">B+</option>
@@ -241,7 +241,7 @@
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label for="address" class="form-label">Address</label>
+                        <label for="address" class="form-label">{{ t('patients_address') }}</label>
                         <textarea class="form-control" id="address" name="address" rows="2"></textarea>
                     </div>
                     <div class="mb-3">
@@ -250,7 +250,7 @@
                                placeholder="Name and phone number">
                     </div>
                     <div class="mb-3">
-                        <label for="allergies" class="form-label">Allergies</label>
+                        <label for="allergies" class="form-label">{{ t('common_all') }}ergies</label>
                         <textarea class="form-control" id="allergies" name="allergies" rows="2"></textarea>
                     </div>
                     <div class="mb-3">
@@ -258,19 +258,19 @@
                         <textarea class="form-control" id="medical_history" name="medical_history" rows="3"></textarea>
                     </div>
                     <div class="mb-3">
-                        <label for="priority" class="form-label">Priority</label>
+                        <label for="priority" class="form-label">{{ t('patients_priority') }}</label>
                         <select class="form-select" id="priority" name="priority">
-                            <option value="4">Low</option>
-                            <option value="3" selected>Normal</option>
-                            <option value="2">Urgent</option>
-                            <option value="1">Critical</option>
+                            <option value="4">{{ t('checkin_low') }}</option>
+                            <option value="3" selected>{{ t('checkin_normal') }}</option>
+                            <option value="2">{{ t('checkin_urgent') }}</option>
+                            <option value="1">{{ t('checkin_critical') }}</option>
                         </select>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="submitPatientForm(event)">Save Patient</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ t('common_cancel') }}</button>
+                <button type="button" class="btn btn-primary" onclick="submitPatientForm(event)">Save {{ t('appointments_patient') }}</button>
             </div>
         </div>
     </div>
@@ -339,7 +339,7 @@ function viewPatientDetails(id) {
     fetch(`/api/patients/${id}`)
         .then(response => response.json())
         .then(data => {
-            alert(`Patient Details:\n\nName: ${data.full_name}\nEmail: ${data.email || 'N/A'}\nPhone: ${data.phone || 'N/A'}\nBlood Type: ${data.blood_type || 'N/A'}\nStatus: ${data.status}\nPriority: ${data.priority}\nAllergies: ${data.allergies || 'None'}\nMedical History: ${data.medical_history || 'None'}`);
+            alert(`Patient Details:\n\nName: ${data.full_name}\nEmail: ${data.email || 'N/A'}\nPhone: ${data.phone || 'N/A'}\nBlood Type: ${data.blood_type || 'N/A'}\n{{ t('dept_status') }}: ${data.status}\nPriority: ${data.priority}\nAllergies: ${data.allergies || 'None'}\nMedical History: ${data.medical_history || 'None'}`);
         })
         .catch(error => {
             console.error('Error:', error);

@@ -5,12 +5,12 @@
 {% block content %}
 <div class="row mb-4">
     <div class="col-md-6">
-        <h1 class="h3"><i class="bi bi-heart-pulse"></i> Examination</h1>
-        <p class="text-muted">Doctor examination interface</p>
+        <h1 class="h3"><i class="bi bi-heart-pulse"></i> {{ t('nav_examination') }}</h1>
+        <p class="text-muted">{{ t('appointments_doctor') }} examination interface</p>
     </div>
     <div class="col-md-6 text-md-end">
         <select class="form-select d-inline-block w-auto" id="doctorSelect" onchange="selectDoctor()">
-            <option value="">Select Doctor</option>
+            <option value="">Select {{ t('appointments_doctor') }}</option>
             {% for doc in doctors %}
             <option value="{{ doc.id }}" {{ 'selected' if doctor and doctor.id == doc.id else '' }}>{{ doc.full_name }} ({{ doc.department.name if doc.department else 'No Dept' }})</option>
             {% endfor %}
@@ -28,7 +28,7 @@
                 <span class="ms-3 badge bg-{{ 'success' if doctor.status == 'available' else 'danger' }}">{{ doctor.status.title() }}</span>
             </div>
             <div>
-                <a href="{{ url_for('examination') }}" class="btn btn-sm btn-outline-secondary">Change Doctor</a>
+                <a href="{{ url_for('examination') }}" class="btn btn-sm btn-outline-secondary">Change {{ t('appointments_doctor') }}</a>
             </div>
         </div>
     </div>
@@ -50,12 +50,12 @@
                     <table class="table table-hover">
                         <thead class="table-dark">
                             <tr>
-                                <th>Priority</th>
-                                <th>Patient</th>
-                                <th>Department</th>
-                                <th>Wait Time</th>
+                                <th>{{ t('patients_priority') }}</th>
+                                <th>{{ t('appointments_patient') }}</th>
+                                <th>{{ t('doctors_department') }}</th>
+                                <th>Wait {{ t('appointments_time') }}</th>
                                 <th>Checked In</th>
-                                <th>Actions</th>
+                                <th>{{ t('table_actions') }}</th>
                             </tr>
                         </thead>
                         <tbody id="queue-table-body">
@@ -63,13 +63,13 @@
                             <tr class="{{ 'table-danger' if entry.priority == 1 else 'table-warning' if entry.priority == 2 else '' }}" data-queue-id="{{ entry.id }}">
                                 <td>
                                     {% if entry.priority == 1 %}
-                                        <span class="badge bg-danger">Critical</span>
+                                        <span class="badge bg-danger">{{ t('checkin_critical') }}</span>
                                     {% elif entry.priority == 2 %}
-                                        <span class="badge bg-warning">Urgent</span>
+                                        <span class="badge bg-warning">{{ t('checkin_urgent') }}</span>
                                     {% elif entry.priority == 3 %}
-                                        <span class="badge bg-info">Normal</span>
+                                        <span class="badge bg-info">{{ t('checkin_normal') }}</span>
                                     {% else %}
-                                        <span class="badge bg-secondary">Low</span>
+                                        <span class="badge bg-secondary">{{ t('checkin_low') }}</span>
                                     {% endif %}
                                 </td>
                                 <td>
@@ -92,7 +92,7 @@
                                         </button>
                                         {% else %}
                                         <button type="button" class="btn btn-outline-primary" disabled>
-                                            <i class="bi bi-play-circle"></i> Select Doctor First
+                                            <i class="bi bi-play-circle"></i> Select {{ t('appointments_doctor') }} First
                                         </button>
                                         {% endif %}
                                         <button type="button" class="btn btn-outline-info" onclick="viewPatient({{ entry.patient_id }})">
@@ -108,8 +108,8 @@
                 {% else %}
                 <div class="text-center py-5">
                     <i class="bi bi-check-circle fs-1 text-success"></i>
-                    <h4 class="mt-3">Queue Empty</h4>
-                    <p class="text-muted">No patients waiting in this queue</p>
+                    <h4 class="mt-3">{{ t('doctors_queue') }} Empty</h4>
+                    <p class="text-muted">{{ t('common_no') }} patients waiting in this queue</p>
                 </div>
                 {% endif %}
             </div>
@@ -123,27 +123,27 @@
     <div class="col-12">
         <div class="card shadow border-primary">
             <div class="card-header bg-primary text-white py-3">
-                <h6 class="m-0 font-weight-bold"><i class="bi bi-heart-pulse"></i> Active Examination</h6>
+                <h6 class="m-0 font-weight-bold"><i class="bi bi-heart-pulse"></i> Active {{ t('nav_examination') }}</h6>
             </div>
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-4">
-                        <h5>Patient Information</h5>
+                        <h5>{{ t('appointments_patient') }} Information</h5>
                         <div id="active-patient-info">
-                            <p class="mb-1"><strong>Name:</strong> <span id="active-patient-name">-</span></p>
-                            <p class="mb-1"><strong>Priority:</strong> <span id="active-patient-priority">-</span></p>
-                            <p class="mb-1"><strong>Wait Time:</strong> <span id="active-wait-time">-</span></p>
+                            <p class="mb-1"><strong>{{ t('patients_name') }}:</strong> <span id="active-patient-name">-</span></p>
+                            <p class="mb-1"><strong>{{ t('patients_priority') }}:</strong> <span id="active-patient-priority">-</span></p>
+                            <p class="mb-1"><strong>Wait {{ t('appointments_time') }}:</strong> <span id="active-wait-time">-</span></p>
                         </div>
                     </div>
                     <div class="col-md-8">
-                        <h5>Examination Notes</h5>
+                        <h5>{{ t('nav_examination') }} Notes</h5>
                         <textarea class="form-control mb-3" rows="4" placeholder="Enter examination findings, diagnosis, and treatment plan..."></textarea>
                         <div class="d-flex justify-content-between">
                             <button type="button" class="btn btn-warning" onclick="orderTests()">
                                 <i class="bi bi-clipboard-plus"></i> Order Tests
                             </button>
                             <button type="button" class="btn btn-success" onclick="completeExamination()">
-                                <i class="bi bi-check-circle"></i> Complete Examination
+                                <i class="bi bi-check-circle"></i> Complete {{ t('nav_examination') }}
                             </button>
                         </div>
                     </div>
