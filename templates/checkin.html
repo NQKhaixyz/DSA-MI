@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}Check-In - Hospital Triage System{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="h3"><i class="bi bi-clipboard-check"></i> Patient Check-In</h1>
+        <p class="text-muted">Check-in patients for appointments or walk-ins</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Check-In Form</h6>
+            </div>
+            <div class="card-body">
+                <form id="checkinForm" onsubmit="return submitCheckin(event)">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="patient_id" class="form-label">Patient *</label>
+                            <select class="form-select" id="patient_id" name="patient_id" required>
+                                <option value="">Select Patient</option>
+                                {% for patient in patients %}
+                                <option value="{{ patient.id }}">{{ patient.full_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="department_id" class="form-label">Department *</label>
+                            <select class="form-select" id="department_id" name="department_id" required>
+                                <option value="">Select Department</option>
+                                {% for dept in departments %}
+                                <option value="{{ dept.id }}">{{ dept.name }} ({{ dept.code }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="priority" class="form-label">Priority *</label>
+                            <select class="form-select" id="priority" name="priority" required>
+                                <option value="1">Critical - Immediate attention</option>
+                                <option value="2">Urgent - Within 30 minutes</option>
+                                <option value="3" selected>Normal - Standard queue</option>
+                                <option value="4">Low - Can wait</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Check-In Time</label>
+                            <input type="text" class="form-control" value="{{ now.strftime('%Y-%m-%d %H:%M') }}" readonly>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">Additional Notes</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Symptoms, complaints, or special requirements..."></textarea>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-check-circle"></i> Check-In Patient
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 bg-warning">
+                <h6 class="m-0 font-weight-bold">Quick Stats</h6>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        Waiting Queue
+                        <span class="badge bg-primary rounded-pill" id="waiting-count">-</span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        In Progress
+                        <span class="badge bg-info rounded-pill" id="progress-count">-</span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        Critical Patients
+                        <span class="badge bg-danger rounded-pill" id="critical-count">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card shadow">
+            <div class="card-header py-3 bg-info text-white">
+                <h6 class="m-0 font-weight-bold">Priority Guide</h6>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-danger py-2">
+                    <strong>Critical (1)</strong> - Life-threatening, immediate
+                </div>
+                <div class="alert alert-warning py-2">
+                    <strong>Urgent (2)</strong> - Serious, within 30 min
+                </div>
+                <div class="alert alert-info py-2">
+                    <strong>Normal (3)</strong> - Standard queue
+                </div>
+                <div class="alert alert-secondary py-2">
+                    <strong>Low (4)</strong> - Non-urgent, can wait
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function submitCheckin(event) {
+    event.preventDefault();
+    
+    const form = document.getElementById('checkinForm');
+    const formData = new FormData(form);
+    const data = {};
+    formData.forEach((value, key) => data[key] = value);
+    
+    fetch('/api/checkin', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (response.ok) {
+            alert('Patient checked in successfully!');
+            form.reset();
+            window.location.reload();
+        } else {
+            alert('Error checking in patient');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error checking in patient');
+    });
+    
+    return false;
+}
+
+// Load queue stats on page load
+function loadQueueStats() {
+    fetch('/api/departments/status')
+    .then(response => response.json())
+    .then(data => {
+        let waiting = 0, progress = 0;
+        data.forEach(dept => {
+            waiting += dept.waiting;
+            progress += dept.in_progress;
+        });
+        document.getElementById('waiting-count').textContent = waiting;
+        document.getElementById('progress-count').textContent = progress;
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+loadQueueStats();
+</script>
+{% endblock %}

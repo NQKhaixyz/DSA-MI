@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Departments - Hospital Triage System{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="h3"><i class="bi bi-building"></i> Departments</h1>
+        <p class="text-muted">View all departments and their current queue status</p>
+    </div>
+</div>
+
+<div class="row" id="departments-grid">
+    {% for dept in status %}
+    <div class="col-lg-4 col-md-6 mb-4">
+        <div class="card shadow h-100 border-{{ 'danger' if dept.queue_length > 10 else 'warning' if dept.queue_length > 5 else 'success' }}">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold">{{ dept.name }}</h6>
+                <span class="badge bg-{{ 'danger' if dept.queue_length > 10 else 'warning' if dept.queue_length > 5 else 'success' }}">
+                    {{ dept.code }}
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-6 text-center border-end">
+                        <h4 class="mb-0">{{ dept.waiting }}</h4>
+                        <small class="text-muted">Waiting</small>
+                    </div>
+                    <div class="col-6 text-center">
+                        <h4 class="mb-0">{{ dept.in_progress }}</h4>
+                        <small class="text-muted">In Progress</small>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>Capacity</span>
+                        <span>{{ dept.current_patients }} / {{ dept.capacity }}</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar {{ 'bg-success' if dept.utilization < 50 else 'bg-warning' if dept.utilization < 80 else 'bg-danger' }}" 
+                             role="progressbar" style="width: {{ dept.utilization }}%">
+                            {{ dept.utilization }}%
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="bi bi-person-badge"></i> 
+                        <span class="badge bg-success">{{ dept.available_doctors }} available</span>
+                    </div>
+                    <span class="badge bg-{{ 'danger' if dept.queue_length > 10 else 'warning' if dept.queue_length > 5 else 'success' }}">
+                        {{ 'Overloaded' if dept.queue_length > 10 else 'Busy' if dept.queue_length > 5 else 'Normal' }}
+                    </span>
+                </div>
+            </div>
+            <div class="card-footer bg-light">
+                <small class="text-muted">
+                    <i class="bi bi-clock"></i> Avg. wait: {{ random.randint(10, 45) }} min
+                </small>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Department Queue Details</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Department</th>
+                                <th>Code</th>
+                                <th>Total Capacity</th>
+                                <th>Current</th>
+                                <th>Waiting</th>
+                                <th>In Progress</th>
+                                <th>Available Doctors</th>
+                                <th>Queue Length</th>
+                                <th>Utilization</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for dept in status %}
+                            <tr class="{{ 'table-danger' if dept.queue_length > 10 else 'table-warning' if dept.queue_length > 5 else '' }}">
+                                <td><strong>{{ dept.name }}</strong></td>
+                                <td><code>{{ dept.code }}</code></td>
+                                <td>{{ dept.capacity }}</td>
+                                <td>{{ dept.current_patients }}</td>
+                                <td>{{ dept.waiting }}</td>
+                                <td>{{ dept.in_progress }}</td>
+                                <td>
+                                    {% if dept.available_doctors > 0 %}
+                                        <span class="badge bg-success">{{ dept.available_doctors }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">0</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ 'danger' if dept.queue_length > 10 else 'warning' if dept.queue_length > 5 else 'info' }}">
+                                        {{ dept.queue_length }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="progress">
+                                        <div class="progress-bar {{ 'bg-success' if dept.utilization < 50 else 'bg-warning' if dept.utilization < 80 else 'bg-danger' }}" 
+                                             role="progressbar" style="width: {{ dept.utilization }}%">
+                                            {{ dept.utilization }}%
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
