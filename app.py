@@ -581,6 +581,8 @@ def index():
     return render_template("index.html")
 
 
+import os
+
 # =============================================================================
 # Khởi tạo dữ liệu mẫu khi module được import (không phụ thuộc __main__)
 # =============================================================================
@@ -591,4 +593,8 @@ init_mock_data_small()
 # Khởi chạy server
 # =============================================================================
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    # Render và các nền tảng cloud cung cấp PORT qua biến môi trường
+    port = int(os.environ.get("PORT", 5000))
+    # Tắt debug khi deploy production (RENDER env tồn tại)
+    debug_mode = os.environ.get("RENDER") is None
+    app.run(debug=debug_mode, host="0.0.0.0", port=port)
