@@ -433,16 +433,20 @@ body {
 }
 
 /* ---------- Current Patient Card - Thẻ bệnh nhân hiện tại ---------- */
-.current-patient {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  color: white;
+#current-visit-box.current-patient {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  color: white !important;
   border-radius: 16px;
   padding: 32px;
   text-align: center;
   box-shadow: 0 10px 40px rgba(37, 99, 235, 0.3);
 }
 
-.current-patient-name {
+#current-visit-box.current-patient * {
+  color: white !important;
+}
+
+#current-visit-box .current-patient-name {
   font-size: 2rem;
   font-weight: 700;
   margin-bottom: 8px;
