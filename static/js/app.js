@@ -158,7 +158,7 @@ function loadTabData(tab) {
             }, 5000);
             break;
         case 'payment':
-            // Payment không load tự động, chờ user tìm kiếm
+            loadPaymentTab();
             break;
         case 'settings':
             initSettings();
@@ -445,46 +445,74 @@ function makeQueueItem(visit, borderClass) {
 }
 
 // ============================================
-// Payment (Thu ngân): Tìm BN và hiển thị chi tiết
+// Payment (Thu ngân): Tải danh sách visit và hiển thị chi tiết
 // ============================================
-async function searchPayment() {
-    const id = document.getElementById('payment-search').value.trim();
-    if (!id) return showToast('Vui lòng nhập mã BN hoặc mã Visit', 'warning');
+async function loadPaymentTab() {
     try {
-        const visit = await apiFetch('/api/patient-visits/' + id);
-        renderPaymentDetail(visit);
+        const visits = await apiFetch('/api/active-visits');
+        const sel = document.getElementById('payment-visit-select');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">-- Chọn lượt khám cần thanh toán --</option>';
+        (visits || []).forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v.visitID;
+            opt.textContent = (v.patientName || '--') + ' (' + v.visitID + ') - ' + v.status;
+            sel.appendChild(opt);
+        });
+    } catch (err) {
+        console.error('loadPaymentTab', err);
+    }
+}
+
+async function searchPayment() {
+    const visitId = document.getElementById('payment-visit-select').value;
+    if (!visitId) return showToast('Vui lòng chọn lượt khám', 'warning');
+    try {
+        const data = await apiFetch('/api/payment-detail/' + visitId);
+        renderPaymentDetail(data);
     } catch (err) {
         showToast(err.message, 'error');
     }
 }
 
-function renderPaymentDetail(visit) {
-    if (!visit) return;
-    window.currentVisitId = visit.visitId || visit.id;
+function renderPaymentDetail(data) {
+    if (!data || !data.visit) return;
+    const visit = data.visit;
+    window.currentVisitId = visit.visitID;
 
     document.getElementById('payment-detail').style.display = 'block';
     document.getElementById('pay-patient-name').textContent = visit.patientName || '--';
-    document.getElementById('pay-visit-id').textContent = visit.visitId || visit.id || '--';
+    document.getElementById('pay-visit-id').textContent = visit.visitID || '--';
     document.getElementById('pay-doctor').textContent = visit.doctorName || '--';
     document.getElementById('pay-dept').textContent = visit.departmentName || '--';
 
+    // BHYT: nếu có BHYT thì mặc định 80%
+    const bhytInput = document.getElementById('pay-bhyt');
+    if (visit.hasInsurance) {
+        bhytInput.value = 80;
+    } else {
+        bhytInput.value = 0;
+    }
+
+    // Dịch vụ
     const svcBody = document.getElementById('pay-services-body');
     svcBody.innerHTML = '';
     let sumServices = 0;
     (visit.services || []).forEach(s => {
         const tr = document.createElement('tr');
-        tr.innerHTML = '<td>' + s.name + '</td><td style="text-align:right;">' + formatMoney(s.price) + '</td>';
+        tr.innerHTML = '<td>' + (s.serviceName || '--') + '</td><td style="text-align:right;">' + formatMoney(s.price) + '</td>';
         svcBody.appendChild(tr);
         sumServices += s.price || 0;
     });
 
+    // Thuốc
     const medBody = document.getElementById('pay-meds-body');
     medBody.innerHTML = '';
     let sumMeds = 0;
     (visit.medicines || []).forEach(m => {
-        const total = (m.price || 0) * (m.quantity || 1);
+        const total = (m.unitPrice || 0) * (m.quantity || 1);
         const tr = document.createElement('tr');
-        tr.innerHTML = '<td>' + m.name + '</td><td style="text-align:center;">' + (m.quantity || 1) + '</td><td style="text-align:right;">' + formatMoney(m.price) + '</td><td style="text-align:right;">' + formatMoney(total) + '</td>';
+        tr.innerHTML = '<td>' + (m.medicineName || '--') + '</td><td style="text-align:center;">' + (m.quantity || 1) + '</td><td style="text-align:right;">' + formatMoney(m.unitPrice) + '</td><td style="text-align:right;">' + formatMoney(total) + '</td>';
         medBody.appendChild(tr);
         sumMeds += total;
     });
@@ -934,21 +962,38 @@ function renderInvoice(data) {
     const box = document.getElementById('invoice-box');
     box.classList.remove('hidden');
 
-    const inv = data.invoice || data;
-    document.getElementById('inv-id').textContent = inv.id || '--';
-    document.getElementById('inv-date').textContent = formatDate(inv.date) || new Date().toLocaleString('vi-VN');
-    document.getElementById('inv-name').textContent = inv.patientName || '--';
-    document.getElementById('inv-code').textContent = inv.patientId || '--';
-    document.getElementById('inv-dept').textContent = inv.departmentName || '--';
-    document.getElementById('inv-doctor').textContent = inv.doctorName || '--';
-    document.getElementById('inv-bhyt').textContent = (inv.bhyt || 0) + '%';
-    document.getElementById('inv-total').textContent = formatMoney(inv.total);
+    // data.bill từ API
+    const bill = data.bill || data;
+    document.getElementById('inv-id').textContent = bill.billID || '--';
+    document.getElementById('inv-date').textContent = new Date().toLocaleString('vi-VN');
+    document.getElementById('inv-name').textContent = document.getElementById('pay-patient-name').textContent;
+    document.getElementById('inv-code').textContent = document.getElementById('pay-visit-id').textContent;
+    document.getElementById('inv-dept').textContent = document.getElementById('pay-dept').textContent;
+    document.getElementById('inv-doctor').textContent = document.getElementById('pay-doctor').textContent;
+    document.getElementById('inv-bhyt').textContent = document.getElementById('pay-bhyt').value + '%';
+    document.getElementById('inv-total').textContent = formatMoney(bill.finalTotal);
 
     const tbody = document.getElementById('inv-body');
     tbody.innerHTML = '';
     let stt = 1;
-    (inv.items || []).forEach(item => {
-        const tmpl = document.getElementById('tmpl-bill-item');
+    
+    // Lấy dịch vụ và thuốc từ bảng đã hiển thị
+    const svcRows = document.querySelectorAll('#pay-services-body tr');
+    svcRows.forEach(row => {
+        const tds = row.querySelectorAll('td');
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + (stt++) + '</td><td>' + tds[0].textContent + '</td><td>1</td><td>' + tds[1].textContent + '</td><td>' + tds[1].textContent + '</td>';
+        tbody.appendChild(tr);
+    });
+    
+    const medRows = document.querySelectorAll('#pay-meds-body tr');
+    medRows.forEach(row => {
+        const tds = row.querySelectorAll('td');
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + (stt++) + '</td><td>' + tds[0].textContent + '</td><td>' + tds[1].textContent + '</td><td>' + tds[2].textContent + '</td><td>' + tds[3].textContent + '</td>';
+        tbody.appendChild(tr);
+    });
+}
         if (!tmpl) return;
         const row = tmpl.content.cloneNode(true);
         row.querySelector('.b-stt').textContent = stt++;

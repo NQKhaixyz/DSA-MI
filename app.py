@@ -377,6 +377,105 @@ def api_patient_visits(patient_id):
         return handle_error(e)
 
 
+@app.route("/api/payment-detail/<visit_id>", methods=["GET"])
+def api_payment_detail(visit_id):
+    """
+    Trả về thông tin đầy đủ để thanh toán:
+    - Tên bệnh nhân, bác sĩ, khoa
+    - Danh sách dịch vụ (tên + giá)
+    - Danh sách thuốc (tên + đơn giá + số lượng)
+    - Trạng thái BHYT
+    """
+    try:
+        visit = global_state.global_visits.get(visit_id)
+        if not visit:
+            return jsonify({"success": False, "error": "Không tìm thấy lượt khám"}), 404
+
+        patient = global_state.global_patients.get(visit.patientID)
+
+        # Dịch vụ đã dùng
+        services_list = []
+        for sid in visit.usedServiceIDs:
+            svc = global_state.global_services.get(sid)
+            if svc:
+                services_list.append(
+                    {
+                        "serviceID": sid,
+                        "serviceName": svc.serviceName,
+                        "price": svc.price,
+                    }
+                )
+
+        # Thuốc trong đơn
+        medicines_list = []
+        if visit.prescriptionID:
+            pres = global_state.global_prescriptions.get(visit.prescriptionID)
+            if pres:
+                for med_id, qty in pres.medicineList.items():
+                    med = global_state.global_inventory.get(med_id)
+                    if med:
+                        medicines_list.append(
+                            {
+                                "medicineID": med_id,
+                                "medicineName": med.medicineName,
+                                "unitPrice": med.unitPrice,
+                                "quantity": qty,
+                                "total": med.unitPrice * qty,
+                            }
+                        )
+
+        # Tìm bác sĩ và khoa
+        doctor_name = "--"
+        dept_name = "--"
+        if visit.assignedDoctorIDs:
+            doc = global_state.global_doctors.get(visit.assignedDoctorIDs[0])
+            if doc:
+                doctor_name = doc.fullName
+                dept = global_state.global_departments.get(doc.departmentID)
+                if dept:
+                    dept_name = dept.departmentName
+
+        return jsonify(
+            {
+                "success": True,
+                "visit": {
+                    "visitID": visit.visitID,
+                    "patientID": visit.patientID,
+                    "patientName": patient.fullName if patient else "--",
+                    "hasInsurance": patient.hasInsurance if patient else False,
+                    "doctorName": doctor_name,
+                    "departmentName": dept_name,
+                    "services": services_list,
+                    "medicines": medicines_list,
+                    "status": visit.status,
+                },
+            }
+        )
+    except Exception as e:
+        return handle_error(e)
+
+
+@app.route("/api/active-visits", methods=["GET"])
+def api_active_visits():
+    """Trả danh sách các lượt khám đang hoạt động (chưa thanh toán/xuất viện)."""
+    try:
+        active = []
+        for visit in global_state.global_visits.values():
+            if visit.status != config.STATUS_DISCHARGED:
+                patient = global_state.global_patients.get(visit.patientID)
+                active.append(
+                    {
+                        "visitID": visit.visitID,
+                        "patientID": visit.patientID,
+                        "patientName": patient.fullName if patient else "--",
+                        "status": visit.status,
+                    }
+                )
+        return jsonify({"success": True, "data": active})
+    except Exception as e:
+        return handle_error(e)
+
+
 @app.route("/api/pay", methods=["POST"])
 def api_pay():
     """Xử lý thanh toán cho lượt khám."""
