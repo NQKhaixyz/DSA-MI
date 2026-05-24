@@ -348,7 +348,7 @@ async function loadDeptDetail(deptId, deptName) {
             roomsGrid.appendChild(card);
         });
 
-        detailCard.style.display = 'block';
+        detailCard.classList.remove('hidden');
     } catch (err) {
         showToast(err.message, 'error');
     }
@@ -488,7 +488,7 @@ function renderPaymentDetail(data) {
     const visit = data.visit;
     window.currentVisitId = visit.visitID;
 
-    document.getElementById('payment-detail').style.display = 'block';
+    document.getElementById('payment-detail').classList.remove('hidden');
     document.getElementById('pay-patient-name').textContent = visit.patientName || '--';
     document.getElementById('pay-visit-id').textContent = visit.visitID || '--';
     document.getElementById('pay-doctor').textContent = visit.doctorName || '--';
