@@ -187,9 +187,9 @@ def api_room_queue(id):
 
         # queues.queues là dict {priority: deque([Visit,...])}
         queue_data = {
-            "priority3": [v.visitID for v in room.queues.queues.get(3, [])],
-            "priority2": [v.visitID for v in room.queues.queues.get(2, [])],
-            "priority1": [v.visitID for v in room.queues.queues.get(1, [])],
+            "priority3": [v.to_dict() for v in room.queues.queues.get(3, [])],
+            "priority2": [v.to_dict() for v in room.queues.queues.get(2, [])],
+            "priority1": [v.to_dict() for v in room.queues.queues.get(1, [])],
             "currentVisit": room.currentVisitID,
         }
         return jsonify({"success": True, "data": queue_data})

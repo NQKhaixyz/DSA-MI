@@ -396,19 +396,21 @@ function renderRoomQueue(data) {
     qBooking.innerHTML = '';
     qWalkin.innerHTML = '';
 
-    (data.emergency || []).forEach(v => qEmergency.appendChild(makeQueueItem(v, 'red-border')));
-    (data.booking || []).forEach(v => qBooking.appendChild(makeQueueItem(v, 'yellow-border')));
-    (data.walkin || []).forEach(v => qWalkin.appendChild(makeQueueItem(v, 'green-border')));
+    // API trả priority3, priority2, priority1
+    (data.priority3 || []).forEach(v => qEmergency.appendChild(makeQueueItem(v, 'red-border')));
+    (data.priority2 || []).forEach(v => qBooking.appendChild(makeQueueItem(v, 'yellow-border')));
+    (data.priority1 || []).forEach(v => qWalkin.appendChild(makeQueueItem(v, 'green-border')));
 
-    const current = data.currentVisit;
+    // currentVisit là string visitID
+    const currentId = data.currentVisit;
     const visitBox = document.getElementById('current-visit-box');
     const callBox = document.getElementById('call-next-box');
-    if (current) {
-        window.currentVisitId = current.visitId || current.id;
-        document.getElementById('cv-name').textContent = current.patientName || '--';
-        document.getElementById('cv-code').textContent = current.patientId || '--';
-        document.getElementById('cv-stt').textContent = current.stt || '--';
-        document.getElementById('cv-big-stt').textContent = current.stt || '--';
+    if (currentId) {
+        window.currentVisitId = currentId;
+        document.getElementById('cv-name').textContent = 'Đang khám';
+        document.getElementById('cv-code').textContent = currentId;
+        document.getElementById('cv-stt').textContent = '--';
+        document.getElementById('cv-big-stt').textContent = '--';
         visitBox.style.display = 'block';
         callBox.style.display = 'none';
     } else {
@@ -422,9 +424,10 @@ function makeQueueItem(visit, borderClass) {
     const tmpl = document.getElementById('tmpl-queue-item');
     const el = tmpl.content.cloneNode(true).querySelector('.queue-item');
     el.classList.add(borderClass);
-    el.querySelector('.q-name').textContent = visit.patientName || '--';
-    el.querySelector('.q-meta').textContent = 'Mã: ' + (visit.patientId || '--');
-    el.querySelector('.q-wait').textContent = visit.waitTime || '--';
+    // Visit.to_dict() trả visitID, patientID, không có patientName
+    el.querySelector('.q-name').textContent = visit.visitID || '--';
+    el.querySelector('.q-meta').textContent = 'Mã BN: ' + (visit.patientID || '--');
+    el.querySelector('.q-wait').textContent = visit.queuePriority === 3 ? 'Cấp cứu' : (visit.queuePriority === 2 ? 'Ưu tiên' : 'Thường');
     return el;
 }
 
@@ -663,15 +666,15 @@ function initEventHandlers() {
         patientForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const payload = {
-                name: document.getElementById('p-name').value,
+                fullName: document.getElementById('p-name').value,
                 gender: document.getElementById('p-gender').value,
                 dob: document.getElementById('p-dob').value,
-                idCard: document.getElementById('p-idcard').value,
+                citizenID: document.getElementById('p-idcard').value,
                 phone: document.getElementById('p-phone').value,
                 email: document.getElementById('p-email').value,
                 address: document.getElementById('p-address').value,
                 bloodType: document.getElementById('p-blood').value,
-                hasBHYT: document.getElementById('p-bhyt').checked
+                hasInsurance: document.getElementById('p-bhyt').checked
             };
             try {
                 await apiFetch('/api/patients', { method: 'POST', body: JSON.stringify(payload) });
@@ -691,11 +694,11 @@ function initEventHandlers() {
         bookingForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const payload = {
-                patientId: document.getElementById('book-patient').value,
-                departmentId: document.getElementById('book-dept').value,
-                doctorId: document.getElementById('book-doctor').value,
+                patient_id: document.getElementById('book-patient').value,
+                department_sequence: [document.getElementById('book-dept').value],
+                selected_doctor_id: document.getElementById('book-doctor').value,
                 date: document.getElementById('book-date').value,
-                time: document.getElementById('book-time').value
+                time_slot: document.getElementById('book-time').value
             };
             try {
                 await apiFetch('/api/appointments', { method: 'POST', body: JSON.stringify(payload) });
@@ -713,13 +716,17 @@ function initEventHandlers() {
         checkinForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const payload = {
-                patientId: document.getElementById('checkin-id').value || null,
-                name: document.getElementById('ci-name').value,
+                patient_id: document.getElementById('checkin-id').value || '',
+                full_name: document.getElementById('ci-name').value,
                 gender: document.getElementById('ci-gender').value,
-                phone: document.getElementById('ci-phone').value,
                 dob: document.getElementById('ci-dob').value,
-                departmentId: document.getElementById('ci-dept').value,
-                priority: parseInt(document.getElementById('ci-priority').value) || 1
+                citizen_id: '000000000000',
+                phone: document.getElementById('ci-phone').value,
+                address: 'Không rõ',
+                blood_type: 'O',
+                severity: document.getElementById('ci-priority').value || 'BinhThuong',
+                department_sequence: [document.getElementById('ci-dept').value],
+                is_appointment: false
             };
             try {
                 const data = await apiFetch('/api/checkin', { method: 'POST', body: JSON.stringify(payload) });
@@ -739,7 +746,7 @@ function initEventHandlers() {
             const visitId = document.getElementById('emergency-visit-id').value.trim();
             if (!visitId) return showToast('Vui lòng nhập mã Visit', 'warning');
             try {
-                await apiFetch('/api/emergency', { method: 'POST', body: JSON.stringify({ visitId }) });
+                await apiFetch('/api/emergency', { method: 'POST', body: JSON.stringify({ visit_id: visitId }) });
                 showToast('Kích hoạt cấp cứu thành công');
                 const activeSection = document.querySelector('.section.active');
                 if (activeSection && activeSection.id === 'section-clinic') loadRoomQueue(window.currentRoomId);
