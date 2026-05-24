@@ -368,7 +368,8 @@ function initReception() {
 async function loadClinic() {
     await populateRoomsSelect();
     const roomSelect = document.getElementById('room-select');
-    if (roomSelect) {
+    if (roomSelect && !roomSelect.dataset.listenerAttached) {
+        roomSelect.dataset.listenerAttached = 'true';
         roomSelect.addEventListener('change', (e) => {
             const roomId = e.target.value;
             window.currentRoomId = roomId || null;
@@ -565,8 +566,8 @@ async function populatePatientsSelect() {
         sel.innerHTML = '<option value="">-- Chọn BN --</option>';
         (patients || []).forEach(p => {
             const opt = document.createElement('option');
-            opt.value = p.id;
-            opt.textContent = p.name + ' (' + p.id + ')';
+            opt.value = p.patientID || p.id;
+            opt.textContent = (p.fullName || p.name || '--') + ' (' + (p.patientID || p.id) + ')';
             sel.appendChild(opt);
         });
     } catch (err) {
@@ -582,8 +583,8 @@ async function populateDoctorsSelect() {
         sel.innerHTML = '<option value="">-- Chọn bác sĩ --</option>';
         (doctors || []).forEach(d => {
             const opt = document.createElement('option');
-            opt.value = d.id;
-            opt.textContent = d.name + ' - ' + (d.specialty || '');
+            opt.value = d.doctorID || d.id;
+            opt.textContent = (d.fullName || d.name || '--') + ' - ' + (d.degree || d.specialty || d.departmentID || '');
             sel.appendChild(opt);
         });
     } catch (err) {
@@ -600,8 +601,8 @@ async function populateDepartmentsSelect() {
             sel.innerHTML = '<option value="">-- Chọn khoa --</option>';
             (depts || []).forEach(d => {
                 const opt = document.createElement('option');
-                opt.value = d.id;
-                opt.textContent = d.name;
+                opt.value = d.departmentID || d.id;
+                opt.textContent = d.departmentName || d.name;
                 sel.appendChild(opt);
             });
         });
@@ -620,7 +621,9 @@ async function populateServicesSelect() {
             const div = document.createElement('div');
             div.className = 'checkbox-group';
             div.style.marginBottom = '8px';
-            div.innerHTML = '<input type="checkbox" id="svc-' + s.id + '" value="' + s.id + '"><label for="svc-' + s.id + '">' + s.name + ' - ' + formatMoney(s.price) + '</label>';
+            const sid = s.serviceID || s.id;
+            const sname = s.serviceName || s.name;
+            div.innerHTML = '<input type="checkbox" id="svc-' + sid + '" value="' + sid + '"><label for="svc-' + sid + '">' + sname + ' - ' + formatMoney(s.price) + '</label>';
             container.appendChild(div);
         });
     } catch (err) {
@@ -641,9 +644,9 @@ async function populateMedicinesSelect() {
         dl.innerHTML = '';
         (medicines || []).forEach(m => {
             const opt = document.createElement('option');
-            opt.value = m.name;
-            opt.setAttribute('data-id', m.id);
-            opt.setAttribute('data-price', m.price);
+            opt.value = m.medicineName || m.name;
+            opt.setAttribute('data-id', m.medicineID || m.id);
+            opt.setAttribute('data-price', m.unitPrice || m.price);
             dl.appendChild(opt);
         });
     } catch (err) {
@@ -659,8 +662,9 @@ async function populateRoomsSelect() {
         sel.innerHTML = '<option value="">-- Chọn phòng --</option>';
         (rooms || []).forEach(r => {
             const opt = document.createElement('option');
-            opt.value = r.id;
-            opt.textContent = (r.name || '--') + ' (' + (r.departmentName || '') + ')';
+            // API trả roomID, departmentID, doctorID
+            opt.value = r.roomID || r.id;
+            opt.textContent = (r.roomID || '--') + ' - ' + (r.departmentID || '');
             sel.appendChild(opt);
         });
     } catch (err) {
