@@ -159,6 +159,7 @@ function loadTabData(tab) {
             break;
         case 'payment':
             loadPaymentTab();
+            refreshInterval = setInterval(loadPaymentTab, 5000);
             break;
         case 'settings':
             initSettings();
