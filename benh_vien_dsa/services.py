@@ -138,10 +138,11 @@ class ReceptionService:
             visit.severity = severity
 
             # --- Xác định mức ưu tiên và trạng thái ---
-            if severity == "NguyKich":
+            # Nhận cả text ("NguyKich") hoặc số từ dropdown ("3", "2", "1")
+            if severity in ("3", "NguyKich", "Nguy Kịch", "nguykich"):
                 visit.queuePriority = config.PRIORITY_EMERGENCY
                 visit.status = config.STATUS_EMERGENCY
-            elif is_appointment:
+            elif is_appointment or severity in ("2", "UuTien", "Ưu tiên"):
                 visit.queuePriority = config.PRIORITY_APPOINTMENT
                 visit.status = config.STATUS_ACTIVE
             else:
