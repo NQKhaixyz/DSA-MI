@@ -4,7 +4,7 @@
 
 **Ngôn ngữ lập trình:** Python 3.11+  
 **Mô hình lưu trữ:** In-Memory Hash Tables (dict) — mô phỏng không dùng Database thực  
-**Giao diện:** Console CLI (Command Line Interface)  
+**Giao diện:** Web Dashboard (Flask + HTML/CSS/JS)  
 
 ---
 
@@ -16,12 +16,14 @@
 4. [Các cấu trúc dữ liệu sử dụng](#4-các-cấu-trúc-dữ-liệu-sử-dụng)
 5. [Các thuật toán cốt lõi](#5-các-thuật-toán-cốt-lõi)
 6. [Quy trình luồng dữ liệu (Workflow)](#6-quy-trình-luồng-dữ-liệu-workflow)
-7. [Thiết kế giao diện CLI](#7-thiết-kế-giao-diện-cli)
+7. [Giao diện Web Dashboard](#7-giao-diện-web-dashboard)
 8. [Class Diagram & Chi tiết đối tượng](#8-class-diagram--chi-tiết-đối-tượng)
 9. [Kết quả kiểm thử (Unit Tests)](#9-kết-quả-kiểm-thử-unit-tests)
 10. [Kết quả đánh giá hiệu năng (Performance Benchmark)](#10-kết-quả-đánh-giá-hiệu-năng-performance-benchmark)
-11. [Hướng dẫn cài đặt & vận hành](#11-hướng-dẫn-cài-đặt--vận-hành)
-12. [Cấu trúc thư mục dự án](#12-cấu-trúc-thư-mục-dự-án)
+11. [Hướng dẫn cài đặt & Deploy Local](#11-hướng-dẫn-cài-đặt--deploy-local)
+12. [Hướng dẫn test giao diện](#12-hướng-dẫn-test-giao-diện)
+13. [Cấu trúc thư mục dự án](#13-cấu-trúc-thư-mục-dự-án)
+14. [Các chức năng đã cập nhật](#14-các-chức-năng-đã-cập-nhật)
 
 ---
 
@@ -68,11 +70,6 @@ global_prescriptions = {}   # Key: prescriptionID -> Value: Prescription Object
 global_bills         = {}   # Key: billID         -> Value: Bill Object
 ```
 
-**Lý do chọn Hash Table (dict):**
-- Truy cập, chèn, xóa trung bình **O(1)**.
-- Không cần duyệt tuần tự qua hàng nghìn bản ghi khi tra cứu.
-- Linh hoạt với nhiều kiểu khóa (String, Tuple).
-
 ---
 
 ## 3. Sơ đồ lớp & Cấu trúc dữ liệu cốt lõi
@@ -103,468 +100,233 @@ self.queues = {
 }
 ```
 
-**Các thao tác:**
-| Thao tác | Độ phức tạp | Mô tả |
-|----------|-------------|-------|
-| `enqueue(item, priority)` | **O(1)** | Thêm vào cuối deque |
-| `dequeue()` | **O(1)** | Lấy từ đầu theo thứ tự 3→2→1 |
-| `appendleft_emergency(item)` | **O(1)** | Chèn cấp cứu lên đầu |
-| `remove(item, priority)` | **O(N)** | Xóa phần tử cụ thể |
-| `get_total_size()` | **O(1)** | Tổng số bệnh nhân chờ |
-
-**Ưu điểm:** Bảo toàn FIFO trong cùng mức ưu tiên; thao tác hai đầu cực nhanh.  
-**Nhược điểm:** Tìm kiếm phần tử ở giữa chậm **O(N)**.  
-**Lý do chọn:** Số mức ưu tiên cố định (chính xác 3 mức), đòi hỏi tính FIFO cao, không cần cơ chế Heap phức tạp.
-
 ### 4.2. Bảng Băm (Hash Table / dict)
-**Ứng dụng:**
-- **Quản lý Slot đặt lịch:** Key = `(doctorID, ngày, khung_giờ)` → Value = `list` (tối đa 4 BN).
-- **Kho thuốc:** Key = `medicineID` → Value = `stockQuantity`.
-
-| Thao tác | Độ phức tạp |
-|----------|-------------|
-| Chèn/Cập nhật | **O(1)** |
-| Tra cứu | **O(1)** |
-| Xóa | **O(1)** |
+- **Quản lý Slot đặt lịch:** Key = `(doctorID, ngày, khung_giờ)` → Value = `list` (tối đa 4 BN)
+- **Kho thuốc:** Key = `medicineID` → Value = `stockQuantity`
 
 ### 4.3. Tập Hợp Băm (Hash Set / set)
-**Ứng dụng:** Chặn vòng lặp luân chuyển liên khoa.
-
+**Ứng dụng:** Chặn vòng lặp luân chuyển liên khoa
 ```python
 visited_departments = set()  # O(1) kiểm tra tồn tại
 ```
-
-Mỗi lần bệnh nhân khám xong khoa `u`, hệ thống thực hiện `visited_departments.add(u)`.  
-Khi bác sĩ chuyển khoa `v`, kiểm tra `if v in visited_departments:` → **O(1)**.
 
 ---
 
 ## 5. Các thuật toán cốt lõi
 
-### 5.1. Thuật toán Điều phối Hàng đợi Ưu tiên Nghiêm ngặt (Strict Priority Scheduling)
+### 5.1. Strict Priority Scheduling (O(1))
+Gọi bệnh nhân theo thứ tự: Mức 3 → Mức 2 → Mức 1
 
-**Giả mã:**
-```python
-def callNextPatient(self):
-    # Mức 3: Cấp cứu
-    if len(self.queues[3]) > 0:
-        return self.queues[3].popleft()
-    
-    # Mức 2: Đặt lịch — kiểm tra đúng khung giờ
-    if len(self.queues[2]) > 0:
-        patient = self.queues[2][0]
-        if is_valid_time(patient):
-            return self.queues[2].popleft()
-    
-    # Mức 1: Vãng lai
-    if len(self.queues[1]) > 0:
-        return self.queues[1].popleft()
-    
-    return None  # Phòng rảnh
-```
+### 5.2. Shortest Queue First - SQF (O(K))
+Cân bằng tải phòng khám theo số người chờ ít nhất
 
-**Cấp cứu khẩn cấp (Preemptive Injection):**
-```python
-def emergencyPreempt(self, patient_visit):
-    self.remove_from_current_queue(patient_visit)
-    self.queues[3].appendleft(patient_visit)
-```
+### 5.3. Two-Pass Validation (O(M))
+Xuất kho thuốc: Kiểm tra toàn bộ đơn trước khi trừ kho (All-or-Nothing)
 
-| | Phân tích |
-|---|---|
-| **Time** | **O(1)** cho dequeue và appendleft_emergency |
-| **Space** | **O(N)** với N = tổng số bệnh nhân đang chờ |
-
-**Ưu điểm:** Phản hồi tức thời O(1), code gọn nhẹ, không cần re-indexing.  
-**Nhược điểm:** Có thể xảy ra "Starvation" (bệnh nhân Mức 1 đợi vĩnh viễn nếu Mức 2/3 liên tục vào).  
-**Lý do chọn:** Trong y tế, tính mạng là ưu tiên số một. Việc BN vãng lai phải chờ khi có ca cấp cứu là logic hoàn toàn hợp lý.
-
----
-
-### 5.2. Thuật toán Cân bằng tải "Hàng đợi ngắn nhất" (Shortest Queue First — SQF)
-
-**Giả mã:**
-```python
-def assign_to_optimal_room(self, visit_obj):
-    best_room = None
-    min_length = float('inf')
-    
-    for room in self.rooms:
-        total_waiting = len(room.queues[3]) + len(room.queues[2]) + len(room.queues[1])
-        if total_waiting < min_length:
-            min_length = total_waiting
-            best_room = room
-    
-    best_room.queues[visit_obj.priority].append(visit_obj)
-    return best_room
-```
-
-| | Phân tích |
-|---|---|
-| **Time** | **O(K)** với K = số phòng trong khoa (thực tế K rất nhỏ, ~2-5) |
-| **Space** | **O(1)** chỉ lưu vài biến tạm |
-
-**Ưu điểm:** Triển khai cực nhanh, kết hợp hoàn hảo với `len()` của deque (**O(1)**).  
-**Nhược điểm:** Chỉ đếm "số người" chứ không ước lượng "thời gian khám".  
-**Lý do chọn:** Chi phí tính toán gần như bằng 0, hiệu quả điều phối thực tế tốt.
-
----
-
-### 5.3. Thuật toán Xác thực toàn vẹn 2 bước (Two-Pass Validation)
-
-Mô phỏng nguyên tắc **ACID** (Atomicity): giao dịch xuất kho thuốc chỉ thành công trọn vẹn, hoặc không có thay đổi nào (All-or-Nothing).
-
-**Giả mã:**
-```python
-def process_prescription(prescription_obj, global_inventory):
-    # Bước 1: Read-only Validation
-    for med_id, required_qty in prescription_obj.medicineList.items():
-        if global_inventory[med_id].stockQuantity < required_qty:
-            return False, f"Lỗi: Kho không đủ số lượng cho thuốc ID {med_id}"
-    
-    # Bước 2: Write Execution (chỉ khi Bước 1 hoàn toàn thành công)
-    for med_id, required_qty in prescription_obj.medicineList.items():
-        global_inventory[med_id].deductStock(required_qty)
-    
-    return True, "Xuất kho và lập hóa đơn thành công"
-```
-
-| | Phân tích |
-|---|---|
-| **Time** | **O(M)** với M = số loại thuốc trong đơn (thường ≤ 10) |
-| **Space** | **O(1)** thực hiện trừ trực tiếp trên dict |
-
-**Ưu điểm:** An toàn tuyệt đối về dữ liệu. Không cần logic Rollback phức tạp.  
-**Nhược điểm:** Phải duyệt đơn thuốc 2 lần.  
-**Lý do chọn:** M rất nhỏ nên chi phí duyệt 2 lần không đáng kể, đổi lại sự an toàn và chính xác tuyệt đối.
-
----
-
-### 5.4. Thuật toán Phát hiện chu trình trạng thái (O(1) Cycle Detection)
-
-**Giả mã:**
-```python
-class Visit:
-    def __init__(self):
-        self.visited_departments = set()  # O(1) tra cứu
-
-    def addDepartment(self, dept_id):
-        if dept_id in self.visited_departments:
-            return False, "Lỗi: Bệnh nhân đã khám khoa này trong ngày!"
-        
-        if len(self.visited_departments) >= 3:
-            return False, "Lỗi: Đã vượt quá số lượng 3 khoa/ngày!"
-        
-        self.visited_departments.add(dept_id)
-        return True, "Chuyển khoa thành công"
-```
-
-| | Phân tích |
-|---|---|
-| **Time** | **O(1)** cho mọi thao tác kiểm tra (nhờ cơ chế băm của Set) |
-| **Space** | **O(D)** với D ≤ 3 (số khoa BN đã khám trong ngày) |
-
-**Ưu điểm:** Khắc phục hoàn toàn việc query lại DB hoặc vòng lặp O(N).  
-**Lý do chọn:** Giải pháp thanh lịch, gọn nhẹ, bảo vệ luồng dữ liệu khỏi sai sót con người.
+### 5.4. Cycle Detection (O(1))
+Chặn bệnh nhân khám trùng khoa trong cùng ngày bằng Set
 
 ---
 
 ## 6. Quy trình luồng dữ liệu (Workflow)
 
-Vòng đời thực thi của chương trình diễn ra theo **5 bước**:
-
-### Bước 1: Boot & Mock Data
-- Tạo 5-9 Department.
-- Trong mỗi Department tạo 1-2 Room.
-- Khởi tạo danh sách Dịch vụ và Kho Thuốc (Hash Tables).
-- Sinh dữ liệu mẫu (nếu chạy benchmark).
-
-### Bước 2: Đăng ký (Lễ tân)
-1. Khách tạo mới → Lookup `global_patients` (O(1)).
-   - Nếu chưa có → Khởi tạo `Patient` → Tạo `Visit`.
-2. Xác định mức ưu tiên: Khẩn cấp (3), Có lịch (2), Vãng lai (1).
-3. Gọi hàm **SQF** để nhét `Visit` vào 1 `Room` của Khoa đầu tiên.
-
-### Bước 3: Bác sĩ khám (Bảng điều khiển Phòng khám)
-1. Bác sĩ ấn "Gọi bệnh nhân" → Hệ thống chạy **Priority Queue** rút BN ra.
-2. Khám bệnh: Add `serviceID` vào mảng `usedServiceIDs`.
-3. Chuyển khoa: Thuật toán **Cycle Detection** (Set) kiểm tra.
-   - Hợp lệ → Chạy lại luồng **SQF** đẩy vào queue khoa tiếp theo.
-
-### Bước 4: Cấp cứu đột xuất
-- Admin/bác sĩ đổi `severity = NguyKich`.
-- Hàm `emergencyPreempt` kích hoạt: BN bị remove khỏi queue hiện tại và `appendleft` vào Mức 3.
-
-### Bước 5: Thanh toán (Quầy Dược & Thu ngân)
-1. Nhập ID bệnh nhân → Lookup **O(1)** lấy `Visit` hiện tại.
-2. Tổng hợp tiền từ bảng Dịch vụ **O(N)**.
-3. Chạy **Two-Pass Validation** cho đơn thuốc.
-4. Xuất `Bill` → Chuyển `status` Visit thành `Discharged`.
-5. BN bị xóa khỏi mọi hệ thống, rác tự dọn (Garbage Collection).
+### 5 bước thực thi:
+1. **Boot & Mock Data** - Tạo 5-9 khoa, 1-2 phòng/khoa, 2 bác sĩ/khoa
+2. **Đăng ký** (Lễ tân) - Check-in, xác định ưu tiên, SQF xếp phòng
+3. **Bác sĩ khám** - Priority Queue rút BN, thêm dịch vụ, chuyển khoa (Cycle Detection)
+4. **Cấp cứu** - `emergencyPreempt` đẩy BN lên đầu queue
+5. **Thanh toán** - Two-Pass Validation, tính Bill, xuất viện
 
 ---
 
-## 7. Thiết kế giao diện CLI
+## 7. Giao diện Web Dashboard
 
-Hệ thống chia làm **3 phân hệ chính**:
+### 7.1. Tổng quan
+Hệ thống có **7 tab chức năng** trong sidebar:
 
-### [1] PHÂN HỆ LỄ TÂN
-- `1.1` Đăng ký đặt lịch Online (Xử lý Slot)
-- `1.2` Tiếp đón bệnh nhân trực tiếp (Vãng lai)
-- `1.3` Kích hoạt trạng thái Cấp cứu khẩn cấp (Chạy Preemptive)
-- `1.4` Hiển thị danh sách chờ phòng khám
+| Tab | Icon | Chức năng chính |
+|-----|------|-----------------|
+| **Dashboard** | 📊 | Thống kê real-time, bảng chờ khám |
+| **Bệnh nhân** | 👤 | Thêm/Sửa/Xóa BN, danh sách BN |
+| **Bác sĩ / Khoa** | 🏥 | Xem khoa → bác sĩ → phòng, số người chờ |
+| **Lễ tân** | 📝 | Đặt lịch online, Check-in vãng lai, Cấp cứu |
+| **Phòng Khám** | 🩺 | Bảng điện tử 3 queue, Gọi BN, Chỉ định DV, Kê đơn |
+| **Thu ngân & Kho** | 💰 | Dropdown chọn visit, tính tiền, BHYT, xuất hóa đơn |
+| **Cài đặt** | ⚙️ | Save/Load JSON, Mock data |
 
-### [2] PHÂN HỆ BÁC SĨ
-- `2.1` Bảng điện tử: Xem danh sách chờ của Phòng khám (Đủ 3 Queue)
-- `2.2` Gọi bệnh nhân tiếp theo (Chạy Strict Priority)
-- `2.3` Chỉ định dịch vụ / Kê đơn thuốc
-- `2.4` Hoàn tất khám / Chuyển khoa chuyên môn (Chạy Cycle Detection)
-
-### [3] PHÂN HỆ THU NGÂN & KHO DƯỢC
-- `3.1` Nhập mã bệnh nhân để thanh toán
-- `3.2` Trích xuất hóa đơn viện phí & Trừ kho thuốc (Chạy Two-Pass)
-
-### [4-7] Công cụ hỗ trợ
-- `4` Lưu dữ liệu ra file JSON
-- `5` Tải dữ liệu từ file JSON
-- `6` Chạy Performance Test
-- `7` Chạy Unit Tests
+### 7.2. Tính năng nổi bật
+- **Auto-refresh** 5 giây: Dashboard, Phòng Khám, Thu ngân
+- **Toast notifications**: Thông báo thành công/lỗi/cảnh báo
+- **Loading spinner**: Khi gọi API
+- **Responsive design**: Sidebar + Main content
+- **Priority badges**: Màu đỏ (Cấp cứu), vàng (Ưu tiên), xanh (Thường)
 
 ---
 
 ## 8. Class Diagram & Chi tiết đối tượng
 
-### Danh sách 10 Class chính
-
-#### 8.1. Patient (Bệnh nhân)
-| Thuộc tính | Kiểu | Ý nghĩa |
-|------------|------|---------|
-| patientID | str | Mã bệnh nhân |
-| fullName | str | Họ tên |
-| gender | str | Giới tính |
-| dob | str | Ngày sinh |
-| citizenID | str | CCCD/CMND |
-| phone | str | SĐT |
-| email | str | Email |
-| address | str | Địa chỉ |
-| bloodType | str | Nhóm máu |
-| hasInsurance | bool | BHYT |
-
-**Methods:** `updateInfo()`, `displayInfo()`, `to_dict()`, `from_dict()`
-
-#### 8.2. Visit (Lần khám — Xương sống hệ thống)
-| Thuộc tính | Kiểu | Ý nghĩa |
-|------------|------|---------|
-| visitID | str | Mã lần khám |
-| patientID | str | Mã BN |
-| visitDate | str | Ngày khám |
-| arrivalTime | str | Giờ đến |
-| severity | str | Mức độ sức khỏe |
-| queuePriority | int | Mức ưu tiên hàng đợi (1/2/3) |
-| status | str | Trạng thái |
-| departmentSequence | list | Danh sách khoa cần khám |
-| currentDepartmentIndex | int | Vị trí khoa hiện tại |
-| assignedDoctorIDs | list | Các bác sĩ đã khám |
-| assignedRoomID | str | Phòng hiện tại |
-| usedServiceIDs | list | Dịch vụ đã dùng |
-| prescriptionID | str | Mã toa thuốc |
-| billID | str | Mã hóa đơn |
-| visited_departments | set | Lịch sử khoa đã khám (Cycle Detection) |
-
-**Methods:** `addDepartment()`, `moveToNextDepartment()`, `addService()`, `assignDoctor()`, `updatePriority()`, `updateStatus()`, `getCurrentDepartment()`, `isCompleted()`
-
-#### 8.3. Doctor (Bác sĩ)
-| Thuộc tính | Kiểu | Ý nghĩa |
-|------------|------|---------|
-| doctorID | str | Mã BS |
-| fullName | str | Họ tên |
-| gender | str | Giới tính |
-| dob | str | Ngày sinh |
-| phone | str | SĐT |
-| email | str | Email |
-| address | str | Địa chỉ |
-| departmentID | str | Khoa trực thuộc |
-| degree | str | Học hàm/vị |
-| licenseNumber | str | Số CCHN |
-| yearsExperience | int | Số năm kinh nghiệm |
-| roomID | str | Phòng khám |
-
-**Methods:** `assignPatient()`, `completeExamination()`, `addServiceToVisit()`, `transferDepartment()`
-
-#### 8.4. Department (Khoa)
-| Thuộc tính | Kiểu | Ý nghĩa |
-|------------|------|---------|
-| departmentID | str | Mã khoa |
-| departmentName | str | Tên khoa |
-| doctorIDs | list | Danh sách bác sĩ |
-| roomIDs | list | Danh sách phòng |
-| serviceIDs | list | Danh sách dịch vụ |
-
-**Methods:** `addDoctor()`, `addRoom()`, `addService()`
-
-#### 8.5. Room (Phòng khám)
-| Thuộc tính | Kiểu | Ý nghĩa |
-|------------|------|---------|
-| roomID | str | Mã phòng |
-| departmentID | str | Mã khoa |
-| doctorID | str | Mã BS phụ trách |
-| queues | MultiLevelQueue | Hàng đợi 3 mức |
-| currentVisitID | str | BN đang khám |
-
-**Methods:** `addToQueue()`, `callNextPatient()`, `getQueueSize()`, `isBusy()`, `emergencyPreempt()`
-
-#### 8.6. Service (Dịch vụ y tế)
-| Thuộc tính | Kiểu | Ý nghĩa |
-|------------|------|---------|
-| serviceID | str | Mã DV |
-| serviceName | str | Tên DV |
-| departmentID | str | Khoa phụ trách |
-| price | float | Giá tiền |
-
-**Methods:** `displayService()`
-
-#### 8.7. Medicine (Thuốc)
-| Thuộc tính | Kiểu | Ý nghĩa |
-|------------|------|---------|
-| medicineID | str | Mã thuốc |
-| medicineName | str | Tên thuốc |
-| unitPrice | float | Đơn giá |
-| stockQuantity | int | Tồn kho |
-
-**Methods:** `addStock()`, `deductStock()`, `checkAvailability()`
-
-#### 8.8. Prescription (Toa thuốc)
-| Thuộc tính | Kiểu | Ý nghĩa |
-|------------|------|---------|
-| prescriptionID | str | Mã toa |
-| visitID | str | Mã lần khám |
-| doctorID | str | Mã BS kê đơn |
-| medicineList | dict | {medID: qty} |
-| note | str | Ghi chú |
-
-**Methods:** `addMedicine()`, `removeMedicine()`, `calculateMedicineCost()`
-
-#### 8.9. Bill (Hóa đơn)
-| Thuộc tính | Kiểu | Ý nghĩa |
-|------------|------|---------|
-| billID | str | Mã HĐ |
-| visitID | str | Mã lần khám |
-| serviceCost | float | Tiền dịch vụ |
-| medicineCost | float | Tiền thuốc |
-| insuranceDiscount | float | Giảm trừ BHYT |
-| finalTotal | float | Tổng thanh toán |
-| paymentStatus | str | Trạng thái |
-
-**Methods:** `calculateTotal()`, `applyInsurance()`, `generateInvoice()`, `markPaid()`
-
-#### 8.10. Appointment (Lịch hẹn)
-| Thuộc tính | Kiểu | Ý nghĩa |
-|------------|------|---------|
-| appointmentID | str | Mã lịch |
-| patientID | str | Mã BN |
-| departmentSequence | list | Chuỗi khoa |
-| selectedDoctorID | str | BS đã chọn |
-| appointmentDate | str | Ngày hẹn |
-| timeSlot | str | Khung giờ |
-| status | str | Trạng thái |
-
-**Methods:** `confirmAppointment()`, `cancelAppointment()`, `updateSlot()`
+### 10 Class chính
+- **Patient** (Bệnh nhân): patientID, fullName, gender, dob, citizenID, phone, hasInsurance
+- **Visit** (Lần khám): visitID, patientID, queuePriority, status, departmentSequence, usedServiceIDs
+- **Doctor** (Bác sĩ): doctorID, fullName, departmentID, degree, yearsExperience
+- **Department** (Khoa): departmentID, departmentName, doctorIDs, roomIDs, serviceIDs
+- **Room** (Phòng): roomID, departmentID, doctorID, queues (MultiLevelQueue), currentVisitID
+- **Service** (Dịch vụ): serviceID, serviceName, departmentID, price
+- **Medicine** (Thuốc): medicineID, medicineName, unitPrice, stockQuantity
+- **Prescription** (Toa thuốc): prescriptionID, visitID, medicineList
+- **Bill** (Hóa đơn): billID, visitID, serviceCost, medicineCost, insuranceDiscount, finalTotal
+- **Appointment** (Lịch hẹn): appointmentID, patientID, departmentSequence, selectedDoctorID
 
 ---
 
 ## 9. Kết quả kiểm thử (Unit Tests)
 
-Chạy lệnh: `python -m unittest benh_vien_dsa.tests -v`
+```bash
+python -m unittest benh_vien_dsa.tests -v
+```
 
 **Kết quả:** `Ran 16 tests in 0.002s — OK`
 
-### Danh sách 16 Test Case
-
-| STT | Test Case | Mô tả | Kết quả |
-|-----|-----------|-------|---------|
-| 1 | `test_priority_queue_operations` | Enqueue 3 mức, verify dequeue 3→2→1, emergency appendleft | ✅ Pass |
-| 2 | `test_strict_priority_call_next_empty_room` | Gọi phòng rỗng trả về None | ✅ Pass |
-| 3 | `test_sqf_assign_shortest_queue` | 2 phòng (2 BN vs 0 BN), verify vào phòng ngắn hơn | ✅ Pass |
-| 4 | `test_cycle_detection_blocks_duplicate` | Thêm khoa A 2 lần → bị chặn | ✅ Pass |
-| 5 | `test_cycle_detection_max_3_departments` | Thêm khoa thứ 4 → bị từ chối | ✅ Pass |
-| 6 | `test_two_pass_validation_success` | Thuốc đủ kho → xuất kho đúng | ✅ Pass |
-| 7 | `test_two_pass_validation_failure` | Thuốc thiếu → stock giữ nguyên (không bị trừ) | ✅ Pass |
-| 8 | `test_emergency_preempt` | Preempt đẩy BN lên đầu queue cấp cứu | ✅ Pass |
-| 9 | `test_bill_calculation_with_insurance` | Có BHYT: thanh toán 20% tổng chi phí | ✅ Pass |
-| 10 | `test_bill_calculation_without_insurance` | Không BHYT: thanh toán 100% | ✅ Pass |
-| 11 | `test_slot_limit_blocks_fifth_patient` | Slot thứ 5 bị từ chối (giới hạn 4) | ✅ Pass |
-| 12 | `test_reception_checkin_walkin` | Check-in vãng lai có priority = 1 | ✅ Pass |
-| 13 | `test_reception_checkin_appointment` | Check-in có hẹn có priority = 2 | ✅ Pass |
-| 14 | `test_doctor_complete_examination_calls_next` | Hoàn tất khám giải phóng phòng, gọi BN tiếp theo | ✅ Pass |
-| 15 | `test_persistence_save_and_load` | Save JSON → reset → load → verify dữ liệu đúng | ✅ Pass |
-| 16 | `test_transfer_department_valid` | Chuyển khoa hợp lệ, update visited_departments | ✅ Pass |
+| STT | Test Case | Kết quả |
+|-----|-----------|---------|
+| 1 | Priority Queue operations (3→2→1) | ✅ Pass |
+| 2 | Strict Priority call next empty room | ✅ Pass |
+| 3 | SQF assign shortest queue | ✅ Pass |
+| 4 | Cycle detection blocks duplicate | ✅ Pass |
+| 5 | Cycle detection max 3 departments | ✅ Pass |
+| 6 | Two-Pass Validation success | ✅ Pass |
+| 7 | Two-Pass Validation failure | ✅ Pass |
+| 8 | Emergency preempt | ✅ Pass |
+| 9 | Bill with insurance (80% off) | ✅ Pass |
+| 10 | Bill without insurance | ✅ Pass |
+| 11 | Slot limit blocks 5th patient | ✅ Pass |
+| 12 | Reception checkin walkin (priority=1) | ✅ Pass |
+| 13 | Reception checkin appointment (priority=2) | ✅ Pass |
+| 14 | Doctor complete calls next | ✅ Pass |
+| 15 | Persistence save/load JSON | ✅ Pass |
+| 16 | Transfer department valid | ✅ Pass |
 
 ---
 
 ## 10. Kết quả đánh giá hiệu năng (Performance Benchmark)
 
-**Chạy lệnh:** `python -m benh_vien_dsa.performance_test`
+```bash
+python -m benh_vien_dsa.performance_test
+```
 
-### Bảng tổng hợp benchmark thực tế
-
-| Thao tác | Số lượng | Tổng thời gian | Trung bình / lần | Đánh giá |
-|----------|----------|----------------|------------------|----------|
-| **Tìm kiếm ID** (dict lookup) | 10.000 | 0.0004s | ~0.000000s | O(1) ✅ |
-| **Tìm kiếm ID** | 50.000 | 0.0006s | ~0.000001s | O(1) ✅ |
-| **Tìm kiếm ID** | 100.000 | 0.0012s | ~0.000001s | O(1) ✅ |
-| **Priority Queue** (enqueue/dequeue) | 10.000 | 0.0049s | ~0.000000s | O(1) ✅ |
-| **Priority Queue** | 50.000 | 0.0257s | ~0.000001s | O(1) ✅ |
-| **Cycle Detection** (Set lookup) | 10.000 | 0.0059s | ~0.000001s | O(1) ✅ |
-| **Cycle Detection** | 50.000 | 0.0295s | ~0.000001s | O(1) ✅ |
-| **Cycle Detection** | 100.000 | 0.0702s | ~0.000001s | O(1) ✅ |
-| **Two-Pass Validation** | 10.000 | 0.0173s | ~0.000002s | O(M) ✅ |
-| **Two-Pass Validation** | 50.000 | 0.0902s | ~0.000002s | O(M) ✅ |
-| **Two-Pass Validation** | 100.000 | 0.1985s | ~0.000002s | O(M) ✅ |
-| **Lưu/Tải JSON** | 10.000 BN | 0.1596s | 0.0798s | I/O bound |
-| **Lưu/Tải JSON** | 50.000 BN | 1.0454s | 0.5227s | I/O bound |
-| **Lưu/Tải JSON** | 100.000 BN | 1.3458s | 0.6729s | I/O bound |
-
-### Nhận xét hiệu năng
-- **Tìm kiếm ID** trên 100.000 bản ghi chỉ mất **0.0012 giây** → xác nhận độ phức tạp **O(1)** của Hash Table.
-- **Priority Queue** xử lý 50.000 lượt enqueue/dequeue trong **0.0257 giây** → xác nhận **O(1)** của deque.
-- **Cycle Detection** 100.000 lần kiểm tra trong **0.07 giây** → xác nhận **O(1)** của Set.
-- **Two-Pass Validation** tuyến tính theo số loại thuốc trong đơn, hoàn toàn đáp ứng yêu cầu thời gian thực.
-- **Lưu/Tải JSON** là thao tác I/O bound, tỷ lệ thuận với số lượng dữ liệu, nhưng vẫn rất nhanh với 100k bản ghi (~1.3 giây).
+| Thao tác | 10.000 | 50.000 | 100.000 | Độ phức tạp |
+|----------|--------|--------|---------|-------------|
+| Tìm kiếm ID (dict) | 0.0004s | 0.0006s | 0.0012s | **O(1)** ✅ |
+| Priority Queue | 0.0049s | 0.0257s | — | **O(1)** ✅ |
+| Cycle Detection | 0.0059s | 0.0295s | 0.0702s | **O(1)** ✅ |
+| Two-Pass Validation | 0.0173s | 0.0902s | 0.1985s | **O(M)** ✅ |
+| Save/Load JSON | 0.16s | 1.05s | 1.35s | I/O bound |
 
 ---
 
-## 11. Hướng dẫn cài đặt & vận hành
+## 11. Hướng dẫn cài đặt & Deploy Local
 
 ### 11.1. Yêu cầu
 - Python 3.11 hoặc cao hơn
-- Không cần cài thêm thư viện ngoài (chỉ dùng Standard Library)
+- Không cần cài thêm thư viện ngoài (chỉ dùng Standard Library + Flask)
 
-### 11.2. Khởi chạy hệ thống
+### 11.2. Cài đặt Flask
 ```bash
-# 1. Chạy giao diện CLI tương tác
-python -m benh_vien_dsa.main
-
-# 2. Chạy Unit Tests
-python -m unittest benh_vien_dsa.tests -v
-
-# 3. Chạy Performance Benchmark
-python -m benh_vien_dsa.performance_test
-
-# 4. Chạy sinh dữ liệu mẫu lớn (10.000+ bản ghi)
-python -c "from benh_vien_dsa.mock_generator import init_mock_data_large; init_mock_data_large()"
+pip install flask
 ```
 
-### 11.3. Lưu ý khi chạy trên Windows
-Nếu gặp lỗi `UnicodeEncodeError` khi in tiếng Việt ra console, hãy chạy với encoding UTF-8:
+### 11.3. Khởi chạy server
 ```bash
-chcp 65001
-set PYTHONIOENCODING=utf-8
-python -m benh_vien_dsa.main
+# 1. Vào thư mục project
+cd "D:\cautrucdulieu cho ny"
+
+# 2. Khởi chạy server
+python app.py
+```
+
+Server sẽ chạy tại:
+- **http://127.0.0.1:5000** (localhost)
+- **http://192.168.1.xxx:5000** (trong mạng LAN)
+
+Tự động khởi tạo **5 bệnh nhân, 10 bác sĩ, 5 khoa, 7 phòng, 15 dịch vụ, 10 thuốc** sẵn để demo.
+
+### 11.4. Lưu ý quan trọng
+- **Đừng tắt terminal** đang chạy `python app.py` (server sẽ tắt)
+- Nếu thay đổi code, server tự động reload (Flask debug mode)
+- Xóa cache browser: `Ctrl+Shift+R` (Windows/Linux) hoặc `Cmd+Shift+R` (Mac)
+
+### 11.5. Các lệnh hữu ích
+```bash
+# Chạy Unit Tests
+python -m unittest benh_vien_dsa.tests -v
+
+# Chạy Performance Benchmark
+python -m benh_vien_dsa.performance_test
+
+# Chạy sinh dữ liệu mẫu lớn (10.000+ bản ghi)
+python -c "from benh_vien_dsa.mock_generator import init_mock_data_large; init_mock_data_large()"
 ```
 
 ---
 
-## 12. Cấu trúc thư mục dự án
+## 12. Hướng dẫn test giao diện
+
+### Test 1: Dashboard
+1. Mở `http://127.0.0.1:5000`
+2. Tab **Dashboard** hiện số liệu: BN, BS, phòng, lượt khám chờ
+3. ✅ Đợi 5 giây, số liệu tự refresh
+
+### Test 2: Thêm bệnh nhân
+1. Tab **Bệnh nhân**
+2. Điền form: Họ tên, Giới tính, Ngày sinh, SĐT, Nhóm máu
+3. ✅ Bấm **"Lưu bệnh nhân"** → Toast xanh + bảng thêm dòng mới
+
+### Test 3: Check-in + Phòng Khám (Flow chính)
+1. Tab **Lễ tân** → Form Check-in
+   - Chọn BN hoặc nhập thông tin mới
+   - Chọn khoa (vd: Nội tổng quát)
+   - Chọn mức ưu tiên: **Thường / Ưu tiên / Cấp cứu**
+   - ✅ Bấm **Check-in** → Toast thành công
+
+2. Tab **Phòng Khám**
+   - Dropdown chọn phòng của khoa đã check-in
+   - ✅ Hiện **3 cột queue** (Cấp cứu đỏ, Ưu tiên vàng, Thường xanh)
+   - ✅ BN hiện trong queue với **tên + mã BN + badge ưu tiên**
+   - Bấm **"Gọi tiếp"**
+   - ✅ BN chuyển sang box **"Đang khám"** (nền xanh, chữ trắng)
+
+3. Chỉ định dịch vụ
+   - Trong box "Đang khám" → tick chọn dịch vụ
+   - Bấm **"Lưu chỉ định"**
+
+4. Hoàn tất khám
+   - Bấm **"Hoàn tất khám"**
+   - ✅ Box biến mất, hiện lại "Phòng đang rảnh"
+
+### Test 4: Thu ngân (Thanh toán)
+1. Tab **Thu ngân & Kho**
+   - Dropdown tự động hiện BN vừa khám xong
+   - Chọn BN → Bấm **"Tải"**
+   - ✅ Hiện: Tên BN, Bác sĩ, Khoa, Dịch vụ đã dùng, Tiền thuốc
+   - ✅ BHYT tự động: Có BHYT → giảm 80%, Không → 0%
+   - Bấm **"Thanh toán"**
+   - ✅ Toast thành công + Xuất hóa đơn
+
+### Test 5: Cấp cứu (Emergency)
+1. Tab **Lễ tân** → Check-in với mức **"Cấp cứu"**
+2. Tab **Phòng Khám** → Chọn phòng
+3. ✅ BN hiện trong cột **Cấp cứu** (border đỏ, badge đỏ)
+4. Bấm **"Gọi tiếp"**
+5. ✅ BN được gọi **ngay lập tức** (ưu tiên cao nhất)
+
+### Test 6: Mock Data
+1. Tab **Cài đặt**
+2. Bấm **"Sinh dữ liệu mẫu"**
+3. ✅ Toast thành công, dữ liệu demo được tạo
+
+---
+
+## 13. Cấu trúc thư mục dự án
 
 ```
 benh_vien_dsa/
@@ -579,16 +341,61 @@ benh_vien_dsa/
 ├── mock_generator.py        # Sinh dữ liệu mẫu 10.000+ bản ghi
 ├── tests.py                 # 16 Unit Test Cases
 ├── performance_test.py      # Benchmark 10k/50k/100k records
-├── cli.py                   # Menu Console tương tác (3 phân hệ)
-├── main.py                  # Điểm vào chính
-└── README.md                # Tài liệu hệ thống (file này)
+├── README.md                # Tài liệu hệ thống (file này)
+
+# Web Frontend
+app.py                       # Flask API backend (25+ REST endpoints)
+templates/
+└── index.html               # SPA giao diện đẹp, 7 tabs
+static/
+├── css/
+│   └── style.css            # Medical-grade responsive design
+└── js/
+    └── app.js               # Vanilla JS SPA logic
 ```
 
 ---
 
-## Kết luận
+## 14. Các chức năng đã cập nhật
 
-Hệ thống đã hoàn thiện toàn bộ các yêu cầu nghiệp vụ, áp dụng đúng 4 cấu trúc dữ liệu cốt lõi (dict, deque, set, list) và 4 thuật toán chính (Strict Priority Scheduling, SQF, Two-Pass Validation, Cycle Detection). Tất cả Unit Test đều pass, hiệu năng đạt yêu cầu O(1) cho các thao tác chính trên tập dữ liệu lên đến 100.000 bản ghi.
+### Web Dashboard (Mới)
+- ✅ Giao diện web đẹp, chuyên nghiệp (thay cho CLI cũ)
+- ✅ 7 tab chức năng với sidebar navigation
+- ✅ Real-time auto-refresh (5 giây) cho Dashboard, Phòng Khám, Thu ngân
+- ✅ Toast notifications (success/error/warning)
+- ✅ Loading spinner khi gọi API
+- ✅ Responsive design
+
+### Phòng Khám
+- ✅ Hiển thị 3 cột queue: Cấp cứu (đỏ), Hẹn trước (vàng), Vãng lai (xanh)
+- ✅ Queue item hiển thị: **Tên BN + Mã BN + Mã Visit + Badge ưu tiên + Badge STT**
+- ✅ Border màu theo ưu tiên, hover effect
+- ✅ Box "Đang khám" nền xanh gradient, chữ trắng, cards trong suốt
+- ✅ Chỉ định dịch vụ (multi-select checkbox)
+- ✅ Kê đơn thuốc (dynamic form)
+- ✅ Chuyển khoa + Hoàn tất khám
+
+### Thu ngân (Hoàn toàn mới)
+- ✅ **Dropdown chọn visit** (không cần gõ tay)
+- ✅ Auto-refresh danh sách visit chưa thanh toán
+- ✅ Hiển thị đầy đủ: Tên BN, Bác sĩ, Khoa, Dịch vụ, Thuốc
+- ✅ **BHYT tự động**: Có BHYT → giảm 80%, Không → 0%
+- ✅ Tính tổng tiền real-time
+- ✅ Xuất hóa đơn đẹp (invoice)
+
+### API Backend
+- ✅ `/api/payment-detail/<visit_id>` - Trả thông tin đầy đủ để thanh toán
+- ✅ `/api/active-visits` - Danh sách visit chưa thanh toán cho dropdown
+- ✅ `/api/rooms/<id>/queue` - Trả visit objects với patientName, priorityLabel
+
+### Bug Fixes
+- ✅ Fix CSS `!important` conflict (dùng classList thay vì style.display)
+- ✅ Fix JS API keys (snake_case từ backend)
+- ✅ Fix room queue display (undefined roomId guard)
+- ✅ Fix severity nhận cả số và text ("3", "NguyKich")
+- ✅ Fix JS syntax error (stray code block)
 
 ---
+
 *Đồ án môn Cấu trúc Dữ liệu & Thuật toán (DSA)*
+*Cập nhật: 24/05/2026*
