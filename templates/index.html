@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hệ thống Quản lý Bệnh viện - Hospital Management System</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome 6 CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+        integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Loading Overlay -->
+  <div id="loading" class="loading-overlay hidden">
+    <div class="spinner"></div>
+  </div>
+
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <i class="fa-solid fa-hospital"></i> MediCare Pro
+      </div>
+      <nav>
+        <div class="nav-link nav-item active" data-tab="dashboard">
+          <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span>Dashboard</span>
+        </div>
+        <div class="nav-link nav-item" data-tab="patients">
+          <span class="nav-icon"><i class="fa-solid fa-user-injured"></i></span>
+          <span>Bệnh nhân</span>
+        </div>
+        <div class="nav-link nav-item" data-tab="doctors">
+          <span class="nav-icon"><i class="fa-solid fa-user-doctor"></i></span>
+          <span>Bác sĩ / Khoa</span>
+        </div>
+        <div class="nav-link nav-item" data-tab="reception">
+          <span class="nav-icon"><i class="fa-solid fa-calendar-check"></i></span>
+          <span>Lễ tân</span>
+        </div>
+        <div class="nav-link nav-item" data-tab="clinic">
+          <span class="nav-icon"><i class="fa-solid fa-stethoscope"></i></span>
+          <span>Phòng Khám</span>
+        </div>
+        <div class="nav-link nav-item" data-tab="payment">
+          <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+          <span>Thu ngân & Kho</span>
+        </div>
+        <div class="nav-link nav-item" data-tab="settings">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span>Cài đặt</span>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="page-header flex justify-between items-center">
+        <h1 id="page-title" class="page-title">Dashboard</h1>
+        <div class="flex gap-2">
+          <button class="btn btn-outline"><i class="fa-solid fa-bell"></i></button>
+          <button class="btn btn-outline"><i class="fa-solid fa-user"></i> Admin</button>
+        </div>
+      </div>
+
+      <!-- ========== DASHBOARD ========== -->
+      <section id="section-dashboard" class="section active">
+        <div class="stats-grid">
+          <div class="stat-card primary">
+            <div class="stat-icon"><i class="fa-solid fa-users"></i></div>
+            <div>
+              <div id="dash-total-patients" class="stat-value">0</div>
+              <div class="stat-label">Tổng bệnh nhân</div>
+            </div>
+          </div>
+          <div class="stat-card success">
+            <div class="stat-icon"><i class="fa-solid fa-user-doctor"></i></div>
+            <div>
+              <div id="dash-total-doctors" class="stat-value">0</div>
+              <div class="stat-label">Bác sĩ</div>
+            </div>
+          </div>
+          <div class="stat-card warning">
+            <div class="stat-icon"><i class="fa-solid fa-spinner"></i></div>
+            <div>
+              <div id="dash-active-visits" class="stat-value">0</div>
+              <div class="stat-label">Lượt khám đang chờ</div>
+            </div>
+          </div>
+          <div class="stat-card danger">
+            <div class="stat-icon"><i class="fa-solid fa-truck-medical"></i></div>
+            <div>
+              <div id="dash-emergency" class="stat-value">0</div>
+              <div class="stat-label">Cấp cứu</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title"><i class="fa-solid fa-list"></i> Danh sách chờ khám</span>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>STT</th>
+                <th>Bệnh nhân</th>
+                <th>Khoa</th>
+                <th>Phòng</th>
+                <th>Mức ưu tiên</th>
+                <th>Thời gian chờ</th>
+              </tr>
+            </thead>
+            <tbody id="waiting-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ========== PATIENTS ========== -->
+      <section id="section-patients" class="section">
+        <div class="two-column">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title"><i class="fa-solid fa-user-plus"></i> Thêm bệnh nhân mới</span>
+            </div>
+            <form id="patient-form">
+              <div class="two-column">
+                <div class="form-group">
+                  <label class="form-label">Họ tên</label>
+                  <input type="text" id="p-name" class="form-input" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Giới tính</label>
+                  <select id="p-gender" class="form-select">
+                    <option value="Nam">Nam</option>
+                    <option value="Nữ">Nữ</option>
+                    <option value="Khác">Khác</option>
+                  </select>
+                </div>
+              </div>
+              <div class="two-column">
+                <div class="form-group">
+                  <label class="form-label">Ngày sinh</label>
+                  <input type="date" id="p-dob" class="form-input">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">CMND/CCCD</label>
+                  <input type="text" id="p-idcard" class="form-input">
+                </div>
+              </div>
+              <div class="two-column">
+                <div class="form-group">
+                  <label class="form-label">Số điện thoại</label>
+                  <input type="tel" id="p-phone" class="form-input">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Email</label>
+                  <input type="email" id="p-email" class="form-input">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Địa chỉ</label>
+                <input type="text" id="p-address" class="form-input">
+              </div>
+              <div class="two-column">
+                <div class="form-group">
+                  <label class="form-label">Nhóm máu</label>
+                  <select id="p-blood" class="form-select">
+                    <option value="">--</option>
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="AB">AB</option>
+                    <option value="O">O</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">
+                    <input type="checkbox" id="p-bhyt"> Có BHYT
+                  </label>
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary btn-lg"><i class="fa-solid fa-save"></i> Lưu bệnh nhân</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title"><i class="fa-solid fa-users"></i> Danh sách bệnh nhân</span>
+              <button class="btn btn-outline" onclick="loadPatients()"><i class="fa-solid fa-rotate"></i> Làm mới</button>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Mã BN</th>
+                  <th>Họ tên</th>
+                  <th>Giới tính</th>
+                  <th>Ngày sinh</th>
+                  <th>SĐT</th>
+                  <th>Nhóm máu</th>
+                  <th>BHYT</th>
+                </tr>
+              </thead>
+              <tbody id="patients-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== DOCTORS ========== -->
+      <section id="section-doctors" class="section">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title"><i class="fa-solid fa-hospital-user"></i> Danh sách Khoa / Phòng</span>
+            <select id="dept-select" class="form-select"></select>
+          </div>
+          <div id="dept-list" class="three-column"></div>
+        </div>
+
+        <div id="dept-detail-card" class="card hidden">
+          <div class="card-header">
+            <span id="dept-detail-title" class="card-title">Chi tiết khoa</span>
+          </div>
+          <div class="two-column">
+            <div>
+              <h3 class="mb-0"><i class="fa-solid fa-user-doctor"></i> Bác sĩ</h3>
+              <div id="dept-doctors-grid" class="three-column mt-2"></div>
+            </div>
+            <div>
+              <h3 class="mb-0"><i class="fa-solid fa-door-open"></i> Phòng khám</h3>
+              <div id="dept-rooms-grid" class="three-column mt-2"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== RECEPTION ========== -->
+      <section id="section-reception" class="section">
+        <div class="two-column">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title"><i class="fa-solid fa-calendar-plus"></i> Đặt lịch khám</span>
+            </div>
+            <form id="booking-form">
+              <div class="form-group">
+                <label class="form-label">Bệnh nhân</label>
+                <select id="book-patient" class="form-select" required></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Khoa</label>
+                <select id="book-dept" class="form-select" required></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Bác sĩ</label>
+                <select id="book-doctor" class="form-select"></select>
+              </div>
+              <div class="two-column">
+                <div class="form-group">
+                  <label class="form-label">Ngày khám</label>
+                  <input type="date" id="book-date" class="form-input" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Giờ khám</label>
+                  <input type="time" id="book-time" class="form-input" required>
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Đặt lịch</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title"><i class="fa-solid fa-clipboard-check"></i> Check-in bệnh nhân</span>
+            </div>
+            <form id="checkin-form">
+              <div class="form-group">
+                <label class="form-label">Mã bệnh nhân (nếu có)</label>
+                <input type="text" id="checkin-id" class="form-input" placeholder="Nhập mã BN nếu đã có">
+              </div>
+              <div class="two-column">
+                <div class="form-group">
+                  <label class="form-label">Họ tên</label>
+                  <input type="text" id="ci-name" class="form-input" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Giới tính</label>
+                  <select id="ci-gender" class="form-select">
+                    <option value="Nam">Nam</option>
+                    <option value="Nữ">Nữ</option>
+                  </select>
+                </div>
+              </div>
+              <div class="two-column">
+                <div class="form-group">
+                  <label class="form-label">Số điện thoại</label>
+                  <input type="tel" id="ci-phone" class="form-input">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Ngày sinh</label>
+                  <input type="date" id="ci-dob" class="form-input">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Khoa khám</label>
+                <select id="ci-dept" class="form-select" required></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Mức ưu tiên</label>
+                <select id="ci-priority" class="form-select">
+                  <option value="1">Thường</option>
+                  <option value="2">Ưu tiên</option>
+                  <option value="3">Cấp cứu</option>
+                </select>
+              </div>
+              <button type="submit" class="btn btn-success btn-lg"><i class="fa-solid fa-check"></i> Check-in</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== CLINIC ========== -->
+      <section id="section-clinic" class="section">
+        <div class="card">
+          <div class="card-header flex justify-between items-center">
+            <span class="card-title"><i class="fa-solid fa-stethoscope"></i> Phòng khám</span>
+            <div class="flex gap-2">
+              <select id="room-select" class="form-select"></select>
+              <button id="btn-call-next" class="btn btn-primary"><i class="fa-solid fa-bullhorn"></i> Gọi tiếp</button>
+            </div>
+          </div>
+
+          <div id="room-queue-card" class="hidden">
+            <div class="queue-grid">
+              <div class="queue-card emergency">
+                <h4><i class="fa-solid fa-truck-medical"></i> Cấp cứu</h4>
+                <ul id="queue-emergency" class="queue-list"></ul>
+              </div>
+              <div class="queue-card appointment">
+                <h4><i class="fa-solid fa-calendar-check"></i> Hẹn trước</h4>
+                <ul id="queue-booking" class="queue-list"></ul>
+              </div>
+              <div class="queue-card walkin">
+                <h4><i class="fa-solid fa-walking"></i> Vãng lai</h4>
+                <ul id="queue-walkin" class="queue-list"></ul>
+              </div>
+            </div>
+
+            <div id="current-visit-box" class="current-patient mt-2 hidden">
+              <div class="current-patient-name"><i class="fa-solid fa-user"></i> <span id="cv-name">--</span></div>
+              <div>Mã BN: <span id="cv-code">--</span> | STT: <span id="cv-stt">--</span></div>
+              <div class="mt-2 big-number"><span id="cv-big-stt">--</span></div>
+
+              <div class="two-column mt-2">
+                <div class="card">
+                  <div class="card-header">
+                    <span class="card-title"><i class="fa-solid fa-flask"></i> Chỉ định dịch vụ</span>
+                  </div>
+                  <div id="services-list"></div>
+                  <button id="btn-add-services" class="btn btn-primary mt-2"><i class="fa-solid fa-plus"></i> Lưu chỉ định</button>
+                </div>
+                <div class="card">
+                  <div class="card-header">
+                    <span class="card-title"><i class="fa-solid fa-pills"></i> Kê đơn thuốc</span>
+                  </div>
+                  <div id="meds-list"></div>
+                  <div class="flex gap-2 mt-2">
+                    <button id="btn-add-med-row" class="btn btn-outline"><i class="fa-solid fa-plus"></i> Thêm thuốc</button>
+                    <button id="btn-save-prescription" class="btn btn-success"><i class="fa-solid fa-save"></i> Lưu đơn</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex gap-2 mt-2 justify-between">
+                <div class="flex gap-2">
+                  <input type="text" id="transfer-dept" class="form-input" placeholder="Mã khoa chuyển">
+                  <button id="btn-transfer-dept" class="btn btn-warning"><i class="fa-solid fa-exchange-alt"></i> Chuyển khoa</button>
+                </div>
+                <button id="btn-complete-visit" class="btn btn-success btn-lg"><i class="fa-solid fa-check-circle"></i> Hoàn tất khám</button>
+              </div>
+            </div>
+
+            <div id="call-next-box" class="text-center mt-2">
+              <div class="card">
+                <h3><i class="fa-solid fa-info-circle"></i> Vui lòng gọi bệnh nhân tiếp theo</h3>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title"><i class="fa-solid fa-truck-medical"></i> Kích hoạt cấp cứu</span>
+          </div>
+          <div class="flex gap-2">
+            <input type="text" id="emergency-visit-id" class="form-input" placeholder="Nhập mã Visit">
+            <button id="btn-emergency-activate" class="btn btn-danger"><i class="fa-solid fa-bolt"></i> Kích hoạt</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== PAYMENT ========== -->
+      <section id="section-payment" class="section">
+        <div class="card">
+          <div class="card-header flex justify-between items-center">
+            <span class="card-title"><i class="fa-solid fa-credit-card"></i> Thu ngân & Kho dược</span>
+            <div class="flex gap-2">
+              <input type="text" id="payment-search" class="form-input" placeholder="Mã BN hoặc mã Visit">
+              <button id="btn-payment-search" class="btn btn-primary"><i class="fa-solid fa-search"></i> Tìm</button>
+            </div>
+          </div>
+
+          <div id="payment-detail" class="hidden">
+            <div class="two-column">
+              <div>
+                <h3 class="mb-0"><i class="fa-solid fa-user-injured"></i> <span id="pay-patient-name">--</span></h3>
+                <div class="mt-2">Mã Visit: <span id="pay-visit-id">--</span></div>
+                <div>Bác sĩ: <span id="pay-doctor">--</span></div>
+                <div>Khoa: <span id="pay-dept">--</span></div>
+              </div>
+              <div class="text-center">
+                <div id="invoice-box" class="hidden">
+                  <div class="invoice">
+                    <div class="invoice-header">
+                      <h2>HÓA ĐƠN THANH TOÁN</h2>
+                      <div>Mã HĐ: <span id="inv-id">--</span></div>
+                      <div>Ngày: <span id="inv-date">--</span></div>
+                    </div>
+                    <div class="invoice-row"><span>Bệnh nhân</span><span id="inv-name">--</span></div>
+                    <div class="invoice-row"><span>Mã BN</span><span id="inv-code">--</span></div>
+                    <div class="invoice-row"><span>Khoa</span><span id="inv-dept">--</span></div>
+                    <div class="invoice-row"><span>Bác sĩ</span><span id="inv-doctor">--</span></div>
+                    <div class="invoice-row"><span>BHYT</span><span id="inv-bhyt">0%</span></div>
+                    <table class="data-table">
+                      <thead>
+                        <tr><th>STT</th><th>Dịch vụ / Thuốc</th><th>SL</th><th>Đơn giá</th><th>Thành tiền</th></tr>
+                      </thead>
+                      <tbody id="inv-body"></tbody>
+                    </table>
+                    <div class="invoice-total">Tổng: <span id="inv-total">0 đ</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card mt-2">
+              <div class="card-header">
+                <span class="card-title"><i class="fa-solid fa-list"></i> Chi tiết dịch vụ</span>
+              </div>
+              <table class="data-table">
+                <thead>
+                  <tr><th>Tên dịch vụ</th><th>Giá</th></tr>
+                </thead>
+                <tbody id="pay-services-body"></tbody>
+              </table>
+              <div class="mt-2 text-right">Tổng dịch vụ: <strong id="pay-sum-services">0 đ</strong></div>
+            </div>
+
+            <div class="card mt-2">
+              <div class="card-header">
+                <span class="card-title"><i class="fa-solid fa-pills"></i> Chi tiết thuốc</span>
+              </div>
+              <table class="data-table">
+                <thead>
+                  <tr><th>Tên thuốc</th><th>SL</th><th>Đơn giá</th><th>Thành tiền</th></tr>
+                </thead>
+                <tbody id="pay-meds-body"></tbody>
+              </table>
+              <div class="mt-2 text-right">Tổng thuốc: <strong id="pay-sum-meds">0 đ</strong></div>
+            </div>
+
+            <div class="card mt-2">
+              <div class="card-header">
+                <span class="card-title"><i class="fa-solid fa-calculator"></i> Tính toán</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <div>
+                  <label class="form-label">BHYT (%)</label>
+                  <input type="number" id="pay-bhyt" class="form-input" value="0" min="0" max="100">
+                </div>
+                <div class="text-right">
+                  <h2>TỔNG THANH TOÁN: <span id="pay-total" class="text-primary">0 đ</span></h2>
+                </div>
+              </div>
+              <div class="text-right mt-2">
+                <button id="btn-pay" class="btn btn-success btn-lg"><i class="fa-solid fa-check"></i> Thanh toán</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== SETTINGS ========== -->
+      <section id="section-settings" class="section">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title"><i class="fa-solid fa-gear"></i> Cài đặt hệ thống</span>
+          </div>
+          <div class="flex gap-2">
+            <button id="btn-save-json" class="btn btn-primary"><i class="fa-solid fa-download"></i> Lưu dữ liệu (JSON)</button>
+            <label class="btn btn-outline">
+              <i class="fa-solid fa-upload"></i> Tải dữ liệu (JSON)
+              <input type="file" id="btn-load-json" accept=".json" hidden>
+            </label>
+            <button id="btn-mock-data" class="btn btn-warning"><i class="fa-solid fa-database"></i> Sinh dữ liệu mẫu</button>
+          </div>
+          <div id="settings-status" class="mt-2">Trạng thái: Sẵn sàng</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ===== TEMPLATES ===== -->
+
+  <!-- Toast Template -->
+  <template id="tmpl-toast">
+    <div class="toast">
+      <div class="toast-icon"><i class="fa-solid"></i></div>
+      <div>
+        <div class="toast-title"></div>
+        <div class="toast-msg"></div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Waiting Row Template -->
+  <template id="tmpl-waiting-row">
+    <tr>
+      <td class="w-stt"></td>
+      <td class="w-name"></td>
+      <td class="w-dept"></td>
+      <td class="w-room"></td>
+      <td class="w-priority"><span class="badge"></span></td>
+      <td class="w-wait"></td>
+    </tr>
+  </template>
+
+  <!-- Patient Row Template -->
+  <template id="tmpl-patient-row">
+    <tr>
+      <td class="p-id"></td>
+      <td class="p-name"></td>
+      <td class="p-gender"></td>
+      <td class="p-dob"></td>
+      <td class="p-phone"></td>
+      <td class="p-blood"></td>
+      <td class="p-bhyt"></td>
+    </tr>
+  </template>
+
+  <!-- Department Card Template -->
+  <template id="tmpl-dept-card">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title d-name"></span>
+      </div>
+      <div class="flex justify-between items-center">
+        <span><i class="fa-solid fa-user-doctor"></i> <span class="d-count"></span> BS</span>
+        <span><i class="fa-solid fa-door-open"></i> <span class="d-rooms"></span> Phòng</span>
+      </div>
+    </div>
+  </template>
+
+  <!-- Doctor Card Template -->
+  <template id="tmpl-doctor-card">
+    <div class="card">
+      <div class="flex items-center gap-2">
+        <div class="stat-icon"><i class="fa-solid fa-user-doctor"></i></div>
+        <div>
+          <div class="doc-name"></div>
+          <div class="doc-spec"></div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Room Card Template -->
+  <template id="tmpl-room-card">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title r-name"></span>
+      </div>
+      <div class="r-count"></div>
+      <div class="r-doctor"></div>
+    </div>
+  </template>
+
+  <!-- Queue Item Template -->
+  <template id="tmpl-queue-item">
+    <li class="queue-item">
+      <span class="q-name"></span>
+      <span class="q-meta"></span>
+      <span class="q-wait"></span>
+    </li>
+  </template>
+
+  <!-- Medicine Row Template -->
+  <template id="tmpl-medicine-row">
+    <div class="form-group flex gap-2 items-center">
+      <input type="text" class="form-input med-name" placeholder="Tên thuốc" list="dl-medicines">
+      <input type="number" class="form-input med-qty" placeholder="SL" value="1" min="1">
+      <button type="button" class="btn btn-danger btn-remove-row"><i class="fa-solid fa-trash"></i></button>
+    </div>
+  </template>
+
+  <!-- Bill Item Template -->
+  <template id="tmpl-bill-item">
+    <tr>
+      <td class="b-stt"></td>
+      <td class="b-name"></td>
+      <td class="b-qty"></td>
+      <td class="b-price"></td>
+      <td class="b-total"></td>
+    </tr>
+  </template>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

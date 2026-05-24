@@ -1,0 +1,469 @@
+"""
+app.py — Flask API Backend cho hệ thống quản lý bệnh viện (benh_vien_dsa).
+Cung cấp REST API JSON cho toàn bộ các nghiệp vụ: tiếp đón, khám bệnh, thanh toán.
+"""
+
+from flask import Flask, render_template, jsonify, request
+import json
+import os
+
+# Import các module nghiệp vụ từ gói benh_vien_dsa
+from benh_vien_dsa import (
+    config,
+    global_state,
+    models,
+    algorithms,
+    services,
+    persistence,
+    mock_generator,
+)
+from benh_vien_dsa.global_state import reset_globals
+from benh_vien_dsa.services import ReceptionService, DoctorService, PharmacyService
+from benh_vien_dsa.mock_generator import init_mock_data_small
+
+# =============================================================================
+# Khởi tạo Flask app và các service
+# =============================================================================
+app = Flask(__name__)
+reception_svc = ReceptionService()
+doctor_svc = DoctorService()
+pharmacy_svc = PharmacyService()
+
+
+# =============================================================================
+# Helper: xử lý lỗi chung cho mọi endpoint
+# =============================================================================
+def handle_error(e: Exception):
+    """Trả về JSON lỗi với status 500."""
+    return jsonify({"success": False, "error": str(e)}), 500
+
+
+# =============================================================================
+# Dashboard & Thống kê
+# =============================================================================
+@app.route("/api/dashboard", methods=["GET"])
+def api_dashboard():
+    """Trả về các chỉ số tổng quan của hệ thống."""
+    try:
+        active_visits = 0
+        emergency_count = 0
+        for v in global_state.global_visits.values():
+            if v.status != config.STATUS_DISCHARGED:
+                active_visits += 1
+            if v.status == config.STATUS_EMERGENCY:
+                emergency_count += 1
+
+        total_queue_sizes = sum(
+            room.getQueueSize() for room in global_state.global_rooms.values()
+        )
+
+        return jsonify(
+            {
+                "success": True,
+                "patients_count": len(global_state.global_patients),
+                "doctors_count": len(global_state.global_doctors),
+                "departments_count": len(global_state.global_departments),
+                "rooms_count": len(global_state.global_rooms),
+                "active_visits": active_visits,
+                "emergency_count": emergency_count,
+                "total_queue_sizes": total_queue_sizes,
+            }
+        )
+    except Exception as e:
+        return handle_error(e)
+
+
+# =============================================================================
+# Patients — Bệnh nhân
+# =============================================================================
+@app.route("/api/patients", methods=["GET"])
+def api_patients():
+    """Lấy danh sách tất cả bệnh nhân."""
+    try:
+        data = [p.to_dict() for p in global_state.global_patients.values()]
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return handle_error(e)
+
+
+@app.route("/api/patients", methods=["POST"])
+def api_patients_create():
+    """Tạo bệnh nhân mới từ JSON body."""
+    try:
+        body = request.get_json(force=True) or {}
+        patient_id = algorithms.generate_id("BN")
+        patient = models.Patient(
+            patientID=patient_id,
+            fullName=body.get("fullName", "Chưa cập nhật"),
+            gender=body.get("gender", "Không rõ"),
+            dob=body.get("dob", "01/01/1970"),
+            citizenID=body.get("citizenID", "000000000000"),
+            phone=body.get("phone", "0000000000"),
+            email=body.get("email", "unknown@example.com"),
+            address=body.get("address", "Không rõ"),
+            bloodType=body.get("bloodType", "O+"),
+            hasInsurance=body.get("hasInsurance", False),
+        )
+        global_state.global_patients[patient_id] = patient
+        return jsonify({"success": True, "data": patient.to_dict()}), 201
+    except Exception as e:
+        return handle_error(e)
+
+
+# =============================================================================
+# Doctors — Bác sĩ
+# =============================================================================
+@app.route("/api/doctors", methods=["GET"])
+def api_doctors():
+    """Lấy danh sách tất cả bác sĩ."""
+    try:
+        data = [d.to_dict() for d in global_state.global_doctors.values()]
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return handle_error(e)
+
+
+# =============================================================================
+# Departments — Khoa
+# =============================================================================
+@app.route("/api/departments", methods=["GET"])
+def api_departments():
+    """Lấy danh sách tất cả khoa."""
+    try:
+        data = [d.to_dict() for d in global_state.global_departments.values()]
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return handle_error(e)
+
+
+@app.route("/api/departments/<id>/rooms", methods=["GET"])
+def api_department_rooms(id):
+    """Lấy danh sách phòng thuộc một khoa."""
+    try:
+        rooms = [
+            r.to_dict()
+            for r in global_state.global_rooms.values()
+            if r.departmentID == id
+        ]
+        return jsonify({"success": True, "data": rooms})
+    except Exception as e:
+        return handle_error(e)
+
+
+@app.route("/api/departments/<id>/doctors", methods=["GET"])
+def api_department_doctors(id):
+    """Lấy danh sách bác sĩ thuộc một khoa."""
+    try:
+        doctors = [
+            d.to_dict()
+            for d in global_state.global_doctors.values()
+            if d.departmentID == id
+        ]
+        return jsonify({"success": True, "data": doctors})
+    except Exception as e:
+        return handle_error(e)
+
+
+# =============================================================================
+# Rooms & Queue — Phòng khám và hàng đợi
+# =============================================================================
+@app.route("/api/rooms", methods=["GET"])
+def api_rooms():
+    """Lấy danh sách tất cả phòng khám."""
+    try:
+        data = [r.to_dict() for r in global_state.global_rooms.values()]
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return handle_error(e)
+
+
+@app.route("/api/rooms/<id>/queue", methods=["GET"])
+def api_room_queue(id):
+    """Trả chi tiết hàng đợi của một phòng: các mức ưu tiên và lượt khám hiện tại."""
+    try:
+        room = global_state.global_rooms.get(id)
+        if not room:
+            return jsonify({"success": False, "error": "Không tìm thấy phòng"}), 404
+
+        # queues.queues là dict {priority: deque([Visit,...])}
+        queue_data = {
+            "priority3": [v.visitID for v in room.queues.queues.get(3, [])],
+            "priority2": [v.visitID for v in room.queues.queues.get(2, [])],
+            "priority1": [v.visitID for v in room.queues.queues.get(1, [])],
+            "currentVisit": room.currentVisitID,
+        }
+        return jsonify({"success": True, "data": queue_data})
+    except Exception as e:
+        return handle_error(e)
+
+
+# =============================================================================
+# Services — Dịch vụ y tế
+# =============================================================================
+@app.route("/api/services", methods=["GET"])
+def api_services():
+    """Lấy danh sách tất cả dịch vụ y tế."""
+    try:
+        data = [s.to_dict() for s in global_state.global_services.values()]
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return handle_error(e)
+
+
+# =============================================================================
+# Medicines — Thuốc trong kho
+# =============================================================================
+@app.route("/api/medicines", methods=["GET"])
+def api_medicines():
+    """Lấy danh sách tất cả thuốc trong kho."""
+    try:
+        data = [m.to_dict() for m in global_state.global_inventory.values()]
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return handle_error(e)
+
+
+# =============================================================================
+# Appointments & Check-in — Lễ tân
+# =============================================================================
+@app.route("/api/appointments", methods=["POST"])
+def api_appointments():
+    """Đăng ký lịch hẹn khám online."""
+    try:
+        body = request.get_json(force=True) or {}
+        ok, msg = reception_svc.register_online(
+            patient_id=body.get("patient_id", ""),
+            department_sequence=body.get("department_sequence", []),
+            selected_doctor_id=body.get("selected_doctor_id", ""),
+            appointment_date=body.get("date", ""),
+            time_slot=body.get("time_slot", ""),
+        )
+        return jsonify({"success": ok, "message": msg})
+    except Exception as e:
+        return handle_error(e)
+
+
+@app.route("/api/checkin", methods=["POST"])
+def api_checkin():
+    """Check-in bệnh nhân tại quầy tiếp đón."""
+    try:
+        body = request.get_json(force=True) or {}
+        visit, msg = reception_svc.checkin_patient(
+            patient_id=body.get("patient_id", ""),
+            full_name=body.get("full_name"),
+            gender=body.get("gender"),
+            dob=body.get("dob"),
+            citizen_id=body.get("citizen_id"),
+            phone=body.get("phone"),
+            address=body.get("address"),
+            blood_type=body.get("blood_type"),
+            severity=body.get("severity", "BinhThuong"),
+            department_sequence=body.get("department_sequence", []),
+            is_appointment=body.get("is_appointment", False),
+        )
+        return jsonify(
+            {
+                "success": visit is not None,
+                "message": msg,
+                "visit": visit.to_dict() if visit else None,
+            }
+        )
+    except Exception as e:
+        return handle_error(e)
+
+
+@app.route("/api/emergency", methods=["POST"])
+def api_emergency():
+    """Kích hoạt chế độ cấp cứu cho một lượt khám."""
+    try:
+        body = request.get_json(force=True) or {}
+        ok, msg = reception_svc.activate_emergency(body.get("visit_id", ""))
+        return jsonify({"success": ok, "message": msg})
+    except Exception as e:
+        return handle_error(e)
+
+
+# =============================================================================
+# Doctor actions — Bác sĩ
+# =============================================================================
+@app.route("/api/call-next", methods=["POST"])
+def api_call_next():
+    """Gọi bệnh nhân tiếp theo trong phòng khám."""
+    try:
+        body = request.get_json(force=True) or {}
+        visit, msg = doctor_svc.call_next_patient(body.get("room_id", ""))
+        return jsonify(
+            {
+                "success": visit is not None,
+                "message": msg,
+                "visit": visit.to_dict() if visit else None,
+            }
+        )
+    except Exception as e:
+        return handle_error(e)
+
+
+@app.route("/api/add-service", methods=["POST"])
+def api_add_service():
+    """Thêm dịch vụ y tế vào lượt khám."""
+    try:
+        body = request.get_json(force=True) or {}
+        visit_id = body.get("visit_id", "")
+        service_ids = body.get("service_ids", [])
+        results = []
+        for sid in service_ids:
+            ok, msg = doctor_svc.add_service(visit_id, sid)
+            results.append({"service_id": sid, "success": ok, "message": msg})
+        return jsonify({"success": True, "results": results})
+    except Exception as e:
+        return handle_error(e)
+
+
+@app.route("/api/add-prescription", methods=["POST"])
+def api_add_prescription():
+    """Kê đơn thuốc cho lượt khám."""
+    try:
+        body = request.get_json(force=True) or {}
+        ok, msg = doctor_svc.add_prescription(
+            visit_id=body.get("visit_id", ""),
+            doctor_id=body.get("doctor_id", ""),
+            medicine_list=body.get("medicine_list", {}),
+            note=body.get("note", ""),
+        )
+        return jsonify({"success": ok, "message": msg})
+    except Exception as e:
+        return handle_error(e)
+
+
+@app.route("/api/transfer", methods=["POST"])
+def api_transfer():
+    """Chuyển bệnh nhân sang khoa mới."""
+    try:
+        body = request.get_json(force=True) or {}
+        ok, msg = doctor_svc.transfer_department(
+            body.get("visit_id", ""), body.get("new_dept_id", "")
+        )
+        return jsonify({"success": ok, "message": msg})
+    except Exception as e:
+        return handle_error(e)
+
+
+@app.route("/api/complete", methods=["POST"])
+def api_complete():
+    """Hoàn tất khám cho lượt khám hiện tại."""
+    try:
+        body = request.get_json(force=True) or {}
+        ok, msg = doctor_svc.complete_examination(body.get("visit_id", ""))
+        return jsonify({"success": ok, "message": msg})
+    except Exception as e:
+        return handle_error(e)
+
+
+# =============================================================================
+# Pharmacy & Payment — Nhà thuốc / Thanh toán
+# =============================================================================
+@app.route("/api/patient-visits/<patient_id>", methods=["GET"])
+def api_patient_visits(patient_id):
+    """Tìm lượt khám chưa xuất viện của bệnh nhân."""
+    try:
+        visit = pharmacy_svc.get_visit_by_patient(patient_id)
+        return jsonify(
+            {
+                "success": True,
+                "visit": visit.to_dict() if visit else None,
+            }
+        )
+    except Exception as e:
+        return handle_error(e)
+
+
+@app.route("/api/pay", methods=["POST"])
+def api_pay():
+    """Xử lý thanh toán cho lượt khám."""
+    try:
+        body = request.get_json(force=True) or {}
+        ok, msg, bill = pharmacy_svc.process_payment(body.get("visit_id", ""))
+        return jsonify(
+            {
+                "success": ok,
+                "message": msg,
+                "bill": bill.to_dict() if bill else None,
+            }
+        )
+    except Exception as e:
+        return handle_error(e)
+
+
+# =============================================================================
+# Persistence — Lưu / Tải / Mock dữ liệu
+# =============================================================================
+@app.route("/api/save", methods=["POST"])
+def api_save():
+    """Lưu toàn bộ dữ liệu hệ thống ra file JSON."""
+    try:
+        ok, msg = persistence.saveData()
+        return jsonify({"success": ok, "message": msg})
+    except Exception as e:
+        return handle_error(e)
+
+
+@app.route("/api/load", methods=["POST"])
+def api_load():
+    """Tải toàn bộ dữ liệu hệ thống từ file JSON."""
+    try:
+        ok, msg = persistence.loadData()
+        return jsonify({"success": ok, "message": msg})
+    except Exception as e:
+        return handle_error(e)
+
+
+@app.route("/api/mock", methods=["POST"])
+def api_mock():
+    """Tạo dữ liệu mẫu cho hệ thống."""
+    try:
+        init_mock_data_small()
+        return jsonify({"success": True, "message": "Đã tạo dữ liệu mẫu"})
+    except Exception as e:
+        return handle_error(e)
+
+
+# =============================================================================
+# Visit detail — Chi tiết lượt khám
+# =============================================================================
+@app.route("/api/visits/<id>", methods=["GET"])
+def api_visit_detail(id):
+    """Trả thông tin chi tiết của một lượt khám kèm thông tin bệnh nhân."""
+    try:
+        visit = global_state.global_visits.get(id)
+        if not visit:
+            return jsonify({"success": False, "error": "Không tìm thấy lượt khám"}), 404
+
+        result = visit.to_dict()
+        patient = global_state.global_patients.get(visit.patientID)
+        if patient:
+            result["patientName"] = patient.fullName
+            result["hasInsurance"] = patient.hasInsurance
+        else:
+            result["patientName"] = None
+            result["hasInsurance"] = None
+
+        return jsonify({"success": True, "data": result})
+    except Exception as e:
+        return handle_error(e)
+
+
+# =============================================================================
+# Main page — Trang chính
+# =============================================================================
+@app.route("/", methods=["GET"])
+def index():
+    """Render trang index HTML."""
+    return render_template("index.html")
+
+
+# =============================================================================
+# Khởi chạy server
+# =============================================================================
+if __name__ == "__main__":
+    init_mock_data_small()  # Khởi tạo dữ liệu mẫu khi start
+    app.run(debug=True, host="0.0.0.0", port=5000)
