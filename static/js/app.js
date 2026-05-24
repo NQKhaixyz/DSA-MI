@@ -374,10 +374,10 @@ async function loadClinic() {
             const roomId = e.target.value;
             window.currentRoomId = roomId || null;
             if (roomId) {
-                document.getElementById('room-queue-card').style.display = 'block';
+                document.getElementById('room-queue-card').classList.remove('hidden');
                 loadRoomQueue(roomId);
             } else {
-                document.getElementById('room-queue-card').style.display = 'none';
+                document.getElementById('room-queue-card').classList.add('hidden');
             }
         });
     }
