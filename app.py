@@ -185,11 +185,32 @@ def api_room_queue(id):
         if not room:
             return jsonify({"success": False, "error": "Không tìm thấy phòng"}), 404
 
-        # queues.queues là dict {priority: deque([Visit,...])}
+        def _visit_to_queue_item(v):
+            """Chuyển Visit thành object gọn nhẹ cho queue display."""
+            patient = global_state.global_patients.get(v.patientID)
+            return {
+                "visitID": v.visitID,
+                "patientID": v.patientID,
+                "patientName": patient.fullName if patient else "Không rõ",
+                "queuePriority": v.queuePriority,
+                "priorityLabel": (
+                    "Cấp cứu"
+                    if v.queuePriority == 3
+                    else ("Ưu tiên" if v.queuePriority == 2 else "Thường")
+                ),
+                "severity": v.severity,
+            }
+
         queue_data = {
-            "priority3": [v.to_dict() for v in room.queues.queues.get(3, [])],
-            "priority2": [v.to_dict() for v in room.queues.queues.get(2, [])],
-            "priority1": [v.to_dict() for v in room.queues.queues.get(1, [])],
+            "priority3": [
+                _visit_to_queue_item(v) for v in room.queues.queues.get(3, [])
+            ],
+            "priority2": [
+                _visit_to_queue_item(v) for v in room.queues.queues.get(2, [])
+            ],
+            "priority1": [
+                _visit_to_queue_item(v) for v in room.queues.queues.get(1, [])
+            ],
             "currentVisit": room.currentVisitID,
         }
         return jsonify({"success": True, "data": queue_data})

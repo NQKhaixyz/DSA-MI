@@ -437,12 +437,17 @@ function makeQueueItem(visit, borderClass) {
     const tmpl = document.getElementById('tmpl-queue-item');
     const el = tmpl.content.cloneNode(true).querySelector('.queue-item');
     el.classList.add(borderClass);
-    // Debug: log visit object to console
-    console.log('makeQueueItem visit:', visit, 'patientID:', visit ? visit.patientID : 'null');
-    // Visit.to_dict() trả visitID, patientID
-    el.querySelector('.q-name').textContent = visit.visitID || visit.id || 'Không tên';
-    el.querySelector('.q-meta').textContent = 'Mã BN: ' + (visit.patientID || visit.patientId || 'Không rõ');
-    el.querySelector('.q-wait').textContent = visit.queuePriority === 3 ? 'Cấp cứu' : (visit.queuePriority === 2 ? 'Ưu tiên' : 'Thường');
+    // API mới trả patientName, patientID, visitID, priorityLabel
+    el.querySelector('.qi-name').textContent = visit.patientName || 'Không rõ';
+    el.querySelector('.qi-id').textContent = 'BN: ' + (visit.patientID || '--') + ' | Visit: ' + (visit.visitID || '--');
+    const badge = el.querySelector('.qi-priority');
+    badge.textContent = visit.priorityLabel || (visit.queuePriority === 3 ? 'Cấp cứu' : (visit.queuePriority === 2 ? 'Ưu tiên' : 'Thường'));
+    if (visit.queuePriority === 3) badge.classList.add('badge-red');
+    else if (visit.queuePriority === 2) badge.classList.add('badge-yellow');
+    else badge.classList.add('badge-green');
+    // STT
+    const sttBadge = el.querySelector('.qi-stt');
+    sttBadge.textContent = '#' + (visit.visitID || '').slice(-4);
     return el;
 }
 

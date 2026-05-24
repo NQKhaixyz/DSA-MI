@@ -600,9 +600,14 @@
   <!-- Queue Item Template -->
   <template id="tmpl-queue-item">
     <li class="queue-item">
-      <span class="q-name"></span>
-      <span class="q-meta"></span>
-      <span class="q-wait"></span>
+      <div class="qi-main">
+        <div class="qi-name"></div>
+        <div class="qi-id"></div>
+      </div>
+      <div class="qi-badges">
+        <span class="qi-priority badge"></span>
+        <span class="qi-stt badge badge-blue"></span>
+      </div>
     </li>
   </template>
 

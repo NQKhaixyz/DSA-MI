@@ -378,13 +378,58 @@ body {
 }
 
 .queue-item {
-  padding: 10px 12px;
+  padding: 12px;
   background: #f8fafc;
-  border-radius: 6px;
-  margin-bottom: 6px;
+  border-radius: 8px;
+  margin-bottom: 8px;
   font-size: 0.875rem;
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  border-left: 4px solid transparent;
+  transition: all 0.2s;
+}
+
+.queue-item:hover {
+  background: #e2e8f0;
+  transform: translateX(4px);
+}
+
+.queue-item.red-border {
+  border-left-color: #ef4444;
+  background: #fef2f2;
+}
+
+.queue-item.yellow-border {
+  border-left-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.queue-item.green-border {
+  border-left-color: #10b981;
+  background: #ecfdf5;
+}
+
+.qi-main {
+  flex: 1;
+}
+
+.qi-name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #1e293b;
+  margin-bottom: 2px;
+}
+
+.qi-id {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.qi-badges {
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
 
 /* ---------- Current Patient Card - Thẻ bệnh nhân hiện tại ---------- */
