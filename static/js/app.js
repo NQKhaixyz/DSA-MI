@@ -172,10 +172,11 @@ function loadTabData(tab) {
 async function loadDashboard() {
     try {
         const data = await apiFetch('/api/dashboard');
-        document.getElementById('dash-total-patients').textContent = data.totalPatients ?? 0;
-        document.getElementById('dash-total-doctors').textContent = data.totalDoctors ?? 0;
-        document.getElementById('dash-active-visits').textContent = data.activeVisits ?? 0;
-        document.getElementById('dash-emergency').textContent = data.emergencyCount ?? 0;
+        // API trả về snake_case: patients_count, doctors_count, active_visits, emergency_count
+        document.getElementById('dash-total-patients').textContent = data.patients_count ?? 0;
+        document.getElementById('dash-total-doctors').textContent = data.doctors_count ?? 0;
+        document.getElementById('dash-active-visits').textContent = data.active_visits ?? 0;
+        document.getElementById('dash-emergency').textContent = data.emergency_count ?? 0;
 
         const rooms = await apiFetch('/api/rooms');
         renderWaitingTable(rooms);
