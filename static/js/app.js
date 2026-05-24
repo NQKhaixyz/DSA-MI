@@ -437,9 +437,11 @@ function makeQueueItem(visit, borderClass) {
     const tmpl = document.getElementById('tmpl-queue-item');
     const el = tmpl.content.cloneNode(true).querySelector('.queue-item');
     el.classList.add(borderClass);
-    // Visit.to_dict() trả visitID, patientID, không có patientName
-    el.querySelector('.q-name').textContent = visit.visitID || '--';
-    el.querySelector('.q-meta').textContent = 'Mã BN: ' + (visit.patientID || '--');
+    // Debug: log visit object to console
+    console.log('makeQueueItem visit:', visit, 'patientID:', visit ? visit.patientID : 'null');
+    // Visit.to_dict() trả visitID, patientID
+    el.querySelector('.q-name').textContent = visit.visitID || visit.id || 'Không tên';
+    el.querySelector('.q-meta').textContent = 'Mã BN: ' + (visit.patientID || visit.patientId || 'Không rõ');
     el.querySelector('.q-wait').textContent = visit.queuePriority === 3 ? 'Cấp cứu' : (visit.queuePriority === 2 ? 'Ưu tiên' : 'Thường');
     return el;
 }
