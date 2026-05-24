@@ -424,12 +424,12 @@ function renderRoomQueue(data) {
         document.getElementById('cv-code').textContent = currentId;
         document.getElementById('cv-stt').textContent = '--';
         document.getElementById('cv-big-stt').textContent = '--';
-        visitBox.style.display = 'block';
-        callBox.style.display = 'none';
+        visitBox.classList.remove('hidden');
+        callBox.classList.add('hidden');
     } else {
         window.currentVisitId = null;
-        visitBox.style.display = 'none';
-        callBox.style.display = 'block';
+        visitBox.classList.add('hidden');
+        callBox.classList.remove('hidden');
     }
 }
 
@@ -892,8 +892,8 @@ function initEventHandlers() {
             if (!visitId) return showToast('Chưa có bệnh nhân đang khám', 'warning');
             try {
                 await apiFetch('/api/complete', { method: 'POST', body: JSON.stringify({ visit_id: visitId }) });
-                document.getElementById('current-visit-box').style.display = 'none';
-                document.getElementById('call-next-box').style.display = 'block';
+                document.getElementById('current-visit-box').classList.add('hidden');
+                document.getElementById('call-next-box').classList.remove('hidden');
                 showToast('Hoàn tất khám thành công');
                 window.currentVisitId = null;
                 loadRoomQueue(window.currentRoomId);
@@ -917,8 +917,8 @@ function initEventHandlers() {
                     body: JSON.stringify({ visit_id: visitId, new_dept_id: newDept })
                 });
                 showToast('Chuyển khoa thành công');
-                document.getElementById('current-visit-box').style.display = 'none';
-                document.getElementById('call-next-box').style.display = 'block';
+                document.getElementById('current-visit-box').classList.add('hidden');
+                document.getElementById('call-next-box').classList.remove('hidden');
                 window.currentVisitId = null;
                 loadRoomQueue(window.currentRoomId);
             } catch (err) {
