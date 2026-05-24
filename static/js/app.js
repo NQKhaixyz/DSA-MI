@@ -240,13 +240,14 @@ function renderPatientTable(patients) {
         const tmpl = document.getElementById('tmpl-patient-row');
         if (!tmpl) return;
         const row = tmpl.content.cloneNode(true);
-        row.querySelector('.p-id').textContent = p.id || '--';
-        row.querySelector('.p-name').textContent = p.name || '--';
+        // API trả snake_case: patientID, fullName, hasInsurance
+        row.querySelector('.p-id').textContent = p.patientID || '--';
+        row.querySelector('.p-name').textContent = p.fullName || '--';
         row.querySelector('.p-gender').textContent = p.gender || '--';
         row.querySelector('.p-dob').textContent = formatDate(p.dob);
         row.querySelector('.p-phone').textContent = p.phone || '--';
         row.querySelector('.p-blood').textContent = p.bloodType || '--';
-        row.querySelector('.p-bhyt').textContent = p.hasBHYT ? 'Có' : 'Không';
+        row.querySelector('.p-bhyt').textContent = p.hasInsurance ? 'Có' : 'Không';
         tbody.appendChild(row);
     });
 }
@@ -274,22 +275,28 @@ function renderDepartmentsList(depts) {
     if (select) select.innerHTML = '<option value="">-- Chọn khoa --</option>';
 
     (depts || []).forEach(d => {
+        // API trả departmentID, departmentName, doctorIDs[], roomIDs[]
+        const deptId = d.departmentID || d.id;
+        const deptName = d.departmentName || d.name;
+        const docCount = (d.doctorIDs || []).length;
+        const roomCount = (d.roomIDs || []).length;
+        
         if (select) {
             const opt = document.createElement('option');
-            opt.value = d.id;
-            opt.textContent = d.name;
+            opt.value = deptId;
+            opt.textContent = deptName;
             select.appendChild(opt);
         }
 
         const tmpl = document.getElementById('tmpl-dept-card');
         if (!tmpl) return;
         const card = tmpl.content.cloneNode(true);
-        card.querySelector('.d-name').textContent = d.name || '--';
-        card.querySelector('.d-count').textContent = d.doctorCount ?? 0;
-        card.querySelector('.d-rooms').textContent = d.roomCount ?? 0;
+        card.querySelector('.d-name').textContent = deptName || '--';
+        card.querySelector('.d-count').textContent = docCount;
+        card.querySelector('.d-rooms').textContent = roomCount;
 
         const cardEl = card.querySelector('.card');
-        cardEl.addEventListener('click', () => loadDeptDetail(d.id, d.name));
+        cardEl.addEventListener('click', () => loadDeptDetail(deptId, deptName));
         container.appendChild(card);
     });
 
@@ -322,8 +329,9 @@ async function loadDeptDetail(deptId, deptName) {
             const tmpl = document.getElementById('tmpl-doctor-card');
             if (!tmpl) return;
             const card = tmpl.content.cloneNode(true);
-            card.querySelector('.doc-name').textContent = doc.name || '--';
-            card.querySelector('.doc-spec').textContent = doc.specialty || '--';
+            // API trả fullName, departmentID, degree
+            card.querySelector('.doc-name').textContent = doc.fullName || '--';
+            card.querySelector('.doc-spec').textContent = doc.degree || doc.departmentID || '--';
             docsGrid.appendChild(card);
         });
 
@@ -378,6 +386,10 @@ async function loadClinic() {
 // Load queue của phòng: 3 cột và BN đang khám
 // ============================================
 async function loadRoomQueue(roomId) {
+    if (!roomId || roomId === 'undefined') {
+        console.warn('loadRoomQueue: roomId is undefined or empty');
+        return;
+    }
     try {
         const data = await apiFetch('/api/rooms/' + roomId + '/queue');
         renderRoomQueue(data);
