@@ -993,16 +993,6 @@ function renderInvoice(data) {
         tr.innerHTML = '<td>' + (stt++) + '</td><td>' + tds[0].textContent + '</td><td>' + tds[1].textContent + '</td><td>' + tds[2].textContent + '</td><td>' + tds[3].textContent + '</td>';
         tbody.appendChild(tr);
     });
-}
-        if (!tmpl) return;
-        const row = tmpl.content.cloneNode(true);
-        row.querySelector('.b-stt').textContent = stt++;
-        row.querySelector('.b-name').textContent = item.name || '--';
-        row.querySelector('.b-qty').textContent = item.quantity || 1;
-        row.querySelector('.b-price').textContent = formatMoney(item.price);
-        row.querySelector('.b-total').textContent = formatMoney((item.price || 0) * (item.quantity || 1));
-        tbody.appendChild(row);
-    });
 
     box.scrollIntoView({ behavior: 'smooth' });
 }
