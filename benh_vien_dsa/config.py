@@ -12,6 +12,8 @@ PRIORITY_WALKIN = 1  # Ưu tiên bệnh nhân đến trực tiếp (thấp nhấ
 STATUS_ACTIVE = "DangKham"  # Đang trong quá trình khám
 STATUS_DISCHARGED = "DaXuatVien"  # Đã xuất viện / kết thúc khám
 STATUS_EMERGENCY = "CapCuu"  # Trạng thái cấp cứu
+STATUS_WAITING_CHECKIN = "ChoCheckIn"  # Đã tạo visit, chờ check-in
+STATUS_COMPLETED = "DaHoanThanh"  # Đã khám xong + thanh toán
 
 # --- Giới hạn hệ thống ---
 MAX_DEPARTMENTS_PER_DAY = 3  # Số khoa tối đa bệnh nhân có thể khám trong một ngày

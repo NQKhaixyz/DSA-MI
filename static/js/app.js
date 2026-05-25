@@ -116,7 +116,6 @@ function initNavigation() {
                 dashboard: 'Dashboard',
                 patients: 'Quản lý Bệnh nhân',
                 doctors: 'Bác sĩ / Khoa / Phòng',
-                reception: 'Lễ tân',
                 clinic: 'Phòng Khám',
                 payment: 'Thu ngân & Kho Dược',
                 settings: 'Cài đặt'
@@ -143,16 +142,13 @@ function loadTabData(tab) {
             refreshInterval = setInterval(loadDashboard, 5000);
             break;
         case 'patients':
-            loadPatients();
+            loadPatientManagement();
             break;
         case 'doctors':
             loadDoctors();
             break;
-        case 'reception':
-            initReception();
-            break;
         case 'clinic':
-            loadClinic();
+            loadClinicOverview();
             refreshInterval = setInterval(() => {
                 if (window.currentRoomId) loadRoomQueue(window.currentRoomId);
             }, 5000);
@@ -173,7 +169,6 @@ function loadTabData(tab) {
 async function loadDashboard() {
     try {
         const data = await apiFetch('/api/dashboard');
-        // API trả về snake_case: patients_count, doctors_count, active_visits, emergency_count
         document.getElementById('dash-total-patients').textContent = data.patients_count ?? 0;
         document.getElementById('dash-total-doctors').textContent = data.doctors_count ?? 0;
         document.getElementById('dash-active-visits').textContent = data.active_visits ?? 0;
@@ -218,39 +213,83 @@ function renderWaitingTable(rooms) {
 }
 
 // ============================================
-// Patients: Load danh sách bệnh nhân
+// PATIENT MANAGEMENT: Load danh sách tiếp đón trong ngày
 // ============================================
-async function loadPatients() {
+async function loadPatientManagement() {
     try {
-        const patients = await apiFetch('/api/patients');
-        renderPatientTable(patients);
+        const visits = await apiFetch('/api/today-visits');
+        renderReceptionTable(visits);
     } catch (err) {
         showToast(err.message, 'error');
     }
 }
 
 // ============================================
-// Render bảng danh sách bệnh nhân
+// Render bảng danh sách tiếp đón (bên phải form)
 // ============================================
-function renderPatientTable(patients) {
-    const tbody = document.getElementById('patients-tbody');
+function renderReceptionTable(visits) {
+    const tbody = document.getElementById('reception-tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    (patients || []).forEach(p => {
-        const tmpl = document.getElementById('tmpl-patient-row');
+    (visits || []).forEach(v => {
+        const tmpl = document.getElementById('tmpl-reception-row');
         if (!tmpl) return;
         const row = tmpl.content.cloneNode(true);
-        // API trả snake_case: patientID, fullName, hasInsurance
-        row.querySelector('.p-id').textContent = p.patientID || '--';
-        row.querySelector('.p-name').textContent = p.fullName || '--';
-        row.querySelector('.p-gender').textContent = p.gender || '--';
-        row.querySelector('.p-dob').textContent = formatDate(p.dob);
-        row.querySelector('.p-phone').textContent = p.phone || '--';
-        row.querySelector('.p-blood').textContent = p.bloodType || '--';
-        row.querySelector('.p-bhyt').textContent = p.hasInsurance ? 'Có' : 'Không';
+        row.querySelector('.rv-visit-id').textContent = v.visitID || '--';
+        row.querySelector('.rv-name').textContent = v.patientName || '--';
+        row.querySelector('.rv-type').textContent = v.receptionType || '--';
+        row.querySelector('.rv-dept').textContent = v.departmentName || '--';
+
+        const statusBadge = row.querySelector('.rv-status .badge');
+        const status = v.status || 'ChoCheckIn';
+        statusBadge.textContent = status;
+        if (status === 'ChoCheckIn') statusBadge.classList.add('badge-red');
+        else if (status === 'DangKham') statusBadge.classList.add('badge-yellow');
+        else if (status === 'DaHoanThanh') statusBadge.classList.add('badge-green');
+        else statusBadge.classList.add('badge-blue');
+
+        const btn = row.querySelector('.btn-checkin');
+        if (status === 'ChoCheckIn') {
+            btn.classList.add('btn-danger');
+            btn.textContent = 'Check-in';
+            btn.addEventListener('click', () => handleCheckinClick(v.visitID, btn));
+        } else if (status === 'DaHoanThanh') {
+            btn.classList.add('btn-success');
+            btn.textContent = 'Đã hoàn thành';
+            btn.disabled = true;
+        } else {
+            btn.classList.add('btn-success');
+            btn.textContent = 'Đã check-in';
+            btn.disabled = true;
+        }
+
         tbody.appendChild(row);
     });
+}
+
+// ============================================
+// Handler: Click nút Check-in (ĐỎ -> XANH LÁ)
+// ============================================
+async function handleCheckinClick(visitId, btnElement) {
+    try {
+        const data = await apiFetch('/api/confirm-checkin/' + visitId, { method: 'POST' });
+        if (data.success) {
+            showToast('Check-in thành công — Đã xếp vào hàng đợi phòng khám');
+            // Chuyển nút sang XANH LÁ và disabled
+            btnElement.classList.remove('btn-danger');
+            btnElement.classList.add('btn-success');
+            btnElement.textContent = 'Đã check-in';
+            btnElement.disabled = true;
+            // Cập nhật badge trạng thái
+            loadPatientManagement();
+            loadDashboard();
+        } else {
+            showToast(data.message || 'Check-in thất bại', 'error');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
 }
 
 // ============================================
@@ -276,7 +315,6 @@ function renderDepartmentsList(depts) {
     if (select) select.innerHTML = '<option value="">-- Chọn khoa --</option>';
 
     (depts || []).forEach(d => {
-        // API trả departmentID, departmentName, doctorIDs[], roomIDs[]
         const deptId = d.departmentID || d.id;
         const deptName = d.departmentName || d.name;
         const docCount = (d.doctorIDs || []).length;
@@ -330,7 +368,6 @@ async function loadDeptDetail(deptId, deptName) {
             const tmpl = document.getElementById('tmpl-doctor-card');
             if (!tmpl) return;
             const card = tmpl.content.cloneNode(true);
-            // API trả fullName, departmentID, degree
             card.querySelector('.doc-name').textContent = doc.fullName || '--';
             card.querySelector('.doc-spec').textContent = doc.degree || doc.departmentID || '--';
             docsGrid.appendChild(card);
@@ -355,33 +392,58 @@ async function loadDeptDetail(deptId, deptName) {
 }
 
 // ============================================
-// Reception: Khởi tạo form (không load data)
+// Clinic Overview: Danh sách phòng khám dạng card
 // ============================================
-function initReception() {
-    populatePatientsSelect();
-    populateDoctorsSelect();
-    populateDepartmentsSelect();
+async function loadClinicOverview() {
+    try {
+        const rooms = await apiFetch('/api/rooms');
+        renderClinicOverview(rooms);
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
 }
 
-// ============================================
-// Clinic (Phòng khám): Load phòng và queue
-// ============================================
-async function loadClinic() {
-    await populateRoomsSelect();
-    const roomSelect = document.getElementById('room-select');
-    if (roomSelect && !roomSelect.dataset.listenerAttached) {
-        roomSelect.dataset.listenerAttached = 'true';
-        roomSelect.addEventListener('change', (e) => {
-            const roomId = e.target.value;
-            window.currentRoomId = roomId || null;
-            if (roomId) {
-                document.getElementById('room-queue-card').classList.remove('hidden');
-                loadRoomQueue(roomId);
-            } else {
-                document.getElementById('room-queue-card').classList.add('hidden');
-            }
-        });
-    }
+function renderClinicOverview(rooms) {
+    const container = document.getElementById('rooms-overview');
+    if (!container) return;
+    container.innerHTML = '';
+
+    (rooms || []).forEach(r => {
+        const tmpl = document.getElementById('tmpl-room-overview');
+        if (!tmpl) return;
+        const card = tmpl.content.cloneNode(true);
+        const roomName = r.roomID || r.name || '--';
+        card.querySelector('.ro-name').textContent = roomName;
+        card.querySelector('.ro-count').textContent = (r.queueLength || 0) + ' BN chờ';
+        card.querySelector('.ro-dept').textContent = 'Khoa: ' + (r.departmentID || '--');
+
+        const doctorId = r.doctorID || r.doctorId || '--';
+        card.querySelector('.ro-doctor').textContent = 'BS: ' + doctorId;
+
+        const cardEl = card.querySelector('.room-overview-card');
+        cardEl.addEventListener('click', () => openRoomDetail(r.roomID, roomName, r.departmentID));
+        container.appendChild(card);
+    });
+}
+
+function openRoomDetail(roomId, roomName, deptId) {
+    window.currentRoomId = roomId;
+    document.getElementById('rooms-overview').parentElement.classList.add('hidden');
+    document.getElementById('room-detail').classList.remove('hidden');
+    document.getElementById('room-detail-name').textContent = roomName;
+
+    // Load queue
+    loadRoomQueue(roomId);
+
+    // Load dịch vụ theo đúng Khoa của phòng (Fix bug hiển thị full dịch vụ)
+    populateServicesSelect(deptId);
+}
+
+function closeRoomDetail() {
+    window.currentRoomId = null;
+    window.currentVisitId = null;
+    document.getElementById('room-detail').classList.add('hidden');
+    document.getElementById('rooms-overview').parentElement.classList.remove('hidden');
 }
 
 // ============================================
@@ -410,12 +472,10 @@ function renderRoomQueue(data) {
     qBooking.innerHTML = '';
     qWalkin.innerHTML = '';
 
-    // API trả priority3, priority2, priority1
     (data.priority3 || []).forEach(v => qEmergency.appendChild(makeQueueItem(v, 'red-border')));
     (data.priority2 || []).forEach(v => qBooking.appendChild(makeQueueItem(v, 'yellow-border')));
     (data.priority1 || []).forEach(v => qWalkin.appendChild(makeQueueItem(v, 'green-border')));
 
-    // currentVisit là string visitID
     const currentId = data.currentVisit;
     const visitBox = document.getElementById('current-visit-box');
     const callBox = document.getElementById('call-next-box');
@@ -438,7 +498,6 @@ function makeQueueItem(visit, borderClass) {
     const tmpl = document.getElementById('tmpl-queue-item');
     const el = tmpl.content.cloneNode(true).querySelector('.queue-item');
     el.classList.add(borderClass);
-    // API mới trả patientName, patientID, visitID, priorityLabel
     el.querySelector('.qi-name').textContent = visit.patientName || 'Không rõ';
     el.querySelector('.qi-id').textContent = 'BN: ' + (visit.patientID || '--') + ' | Visit: ' + (visit.visitID || '--');
     const badge = el.querySelector('.qi-priority');
@@ -446,7 +505,6 @@ function makeQueueItem(visit, borderClass) {
     if (visit.queuePriority === 3) badge.classList.add('badge-red');
     else if (visit.queuePriority === 2) badge.classList.add('badge-yellow');
     else badge.classList.add('badge-green');
-    // STT
     const sttBadge = el.querySelector('.qi-stt');
     sttBadge.textContent = '#' + (visit.visitID || '').slice(-4);
     return el;
@@ -460,6 +518,8 @@ async function loadPaymentTab() {
         const visits = await apiFetch('/api/active-visits');
         const sel = document.getElementById('payment-visit-select');
         if (!sel) return;
+        // Giữ lại giá trị đang chọn để không bị reset khi auto-refresh
+        const currentValue = sel.value;
         sel.innerHTML = '<option value="">-- Chọn lượt khám cần thanh toán --</option>';
         (visits || []).forEach(v => {
             const opt = document.createElement('option');
@@ -467,16 +527,27 @@ async function loadPaymentTab() {
             opt.textContent = (v.patientName || '--') + ' (' + v.visitID + ') - ' + v.status;
             sel.appendChild(opt);
         });
+        // Khôi phục giá trị đã chọn nếu còn tồn tại trong danh sách mới
+        if (currentValue) {
+            const stillExists = Array.from(sel.options).some(o => o.value === currentValue);
+            if (stillExists) sel.value = currentValue;
+        }
     } catch (err) {
         console.error('loadPaymentTab', err);
     }
 }
 
 async function searchPayment() {
-    const visitId = document.getElementById('payment-visit-select').value;
-    if (!visitId) return showToast('Vui lòng chọn lượt khám', 'warning');
+    const sel = document.getElementById('payment-visit-select');
+    const visitId = sel ? sel.value : '';
+    
+    if (!visitId) {
+        showToast('Vui lòng chọn lượt khám từ dropdown trước khi bấm Tải', 'warning');
+        return;
+    }
     try {
         const data = await apiFetch('/api/payment-detail/' + visitId);
+        console.log('DEBUG: Full payment data:', JSON.stringify(data, null, 2));
         renderPaymentDetail(data);
     } catch (err) {
         showToast(err.message, 'error');
@@ -513,7 +584,7 @@ function renderPaymentDetail(data) {
         sumServices += s.price || 0;
     });
 
-    // Thuốc
+    // Thuốc — ĐƠN GIÁ lấy từ Kho dược (Medicine Inventory)
     const medBody = document.getElementById('pay-meds-body');
     medBody.innerHTML = '';
     let sumMeds = 0;
@@ -594,27 +665,10 @@ function initSettings() {
 // ============================================
 // Populate Select Boxes
 // ============================================
-async function populatePatientsSelect() {
-    try {
-        const patients = await apiFetch('/api/patients');
-        const sel = document.getElementById('book-patient');
-        if (!sel) return;
-        sel.innerHTML = '<option value="">-- Chọn BN --</option>';
-        (patients || []).forEach(p => {
-            const opt = document.createElement('option');
-            opt.value = p.patientID || p.id;
-            opt.textContent = (p.fullName || p.name || '--') + ' (' + (p.patientID || p.id) + ')';
-            sel.appendChild(opt);
-        });
-    } catch (err) {
-        console.error('populatePatientsSelect', err);
-    }
-}
-
 async function populateDoctorsSelect() {
     try {
         const doctors = await apiFetch('/api/doctors');
-        const sel = document.getElementById('book-doctor');
+        const sel = document.getElementById('reception-doctor');
         if (!sel) return;
         sel.innerHTML = '<option value="">-- Chọn bác sĩ --</option>';
         (doctors || []).forEach(d => {
@@ -631,7 +685,7 @@ async function populateDoctorsSelect() {
 async function populateDepartmentsSelect() {
     try {
         const depts = await apiFetch('/api/departments');
-        const selects = [document.getElementById('book-dept'), document.getElementById('ci-dept')];
+        const selects = [document.getElementById('reception-dept')];
         selects.forEach(sel => {
             if (!sel) return;
             sel.innerHTML = '<option value="">-- Chọn khoa --</option>';
@@ -647,9 +701,18 @@ async function populateDepartmentsSelect() {
     }
 }
 
-async function populateServicesSelect() {
+// ============================================
+// Populate Services: CHỈ theo Khoa của phòng (Fix bug hiển thị full)
+// ============================================
+async function populateServicesSelect(departmentID) {
     try {
-        const services = await apiFetch('/api/services');
+        let services = [];
+        if (departmentID && window.currentRoomId) {
+            // Ưu tiên gọi API filter theo phòng
+            services = await apiFetch('/api/rooms/' + window.currentRoomId + '/services');
+        } else {
+            services = await apiFetch('/api/services');
+        }
         const container = document.getElementById('services-list');
         if (!container) return;
         container.innerHTML = '';
@@ -690,108 +753,57 @@ async function populateMedicinesSelect() {
     }
 }
 
-async function populateRoomsSelect() {
-    try {
-        const rooms = await apiFetch('/api/rooms');
-        const sel = document.getElementById('room-select');
-        if (!sel) return;
-        sel.innerHTML = '<option value="">-- Chọn phòng --</option>';
-        (rooms || []).forEach(r => {
-            const opt = document.createElement('option');
-            // API trả roomID, departmentID, doctorID
-            opt.value = r.roomID || r.id;
-            opt.textContent = (r.roomID || '--') + ' - ' + (r.departmentID || '');
-            sel.appendChild(opt);
-        });
-    } catch (err) {
-        console.error('populateRoomsSelect', err);
-    }
-}
-
 // ============================================
 // Event Handlers: Gắn sự kiện cho các form và nút
 // ============================================
 function initEventHandlers() {
-    // 1. Form thêm bệnh nhân
-    const patientForm = document.getElementById('patient-form');
-    if (patientForm) {
-        patientForm.addEventListener('submit', async (e) => {
+    // 1. Form tiếp đón (gộp bệnh nhân + lễ tân)
+    const receptionForm = document.getElementById('reception-form');
+    if (receptionForm) {
+        receptionForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            const type = document.getElementById('reception-type').value;
+            const isApt = type === 'appointment';
             const payload = {
-                fullName: document.getElementById('p-name').value,
+                full_name: document.getElementById('p-name').value,
                 gender: document.getElementById('p-gender').value,
                 dob: document.getElementById('p-dob').value,
-                citizenID: document.getElementById('p-idcard').value,
+                citizen_id: document.getElementById('p-idcard').value || '000000000000',
                 phone: document.getElementById('p-phone').value,
-                email: document.getElementById('p-email').value,
-                address: document.getElementById('p-address').value,
-                bloodType: document.getElementById('p-blood').value,
-                hasInsurance: document.getElementById('p-bhyt').checked
-            };
-            try {
-                await apiFetch('/api/patients', { method: 'POST', body: JSON.stringify(payload) });
-                showToast('Thêm BN thành công');
-                patientForm.reset();
-                loadPatients();
-                populatePatientsSelect();
-            } catch (err) {
-                showToast(err.message, 'error');
-            }
-        });
-    }
-
-    // 2. Form đặt lịch
-    const bookingForm = document.getElementById('booking-form');
-    if (bookingForm) {
-        bookingForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const payload = {
-                patient_id: document.getElementById('book-patient').value,
-                department_sequence: [document.getElementById('book-dept').value],
-                selected_doctor_id: document.getElementById('book-doctor').value,
-                date: document.getElementById('book-date').value,
-                time_slot: document.getElementById('book-time').value
-            };
-            try {
-                await apiFetch('/api/appointments', { method: 'POST', body: JSON.stringify(payload) });
-                showToast('Đặt lịch thành công');
-                bookingForm.reset();
-            } catch (err) {
-                showToast(err.message, 'error');
-            }
-        });
-    }
-
-    // 3. Form check-in
-    const checkinForm = document.getElementById('checkin-form');
-    if (checkinForm) {
-        checkinForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const payload = {
-                patient_id: document.getElementById('checkin-id').value || '',
-                full_name: document.getElementById('ci-name').value,
-                gender: document.getElementById('ci-gender').value,
-                dob: document.getElementById('ci-dob').value,
-                citizen_id: '000000000000',
-                phone: document.getElementById('ci-phone').value,
-                address: 'Không rõ',
-                blood_type: 'O',
-                severity: document.getElementById('ci-priority').value || 'BinhThuong',
-                department_sequence: [document.getElementById('ci-dept').value],
-                is_appointment: false
+                blood_type: document.getElementById('p-blood').value || 'O',
+                hasInsurance: document.getElementById('p-bhyt').checked,
+                department_sequence: [document.getElementById('reception-dept').value],
+                is_appointment: isApt,
+                appointment_date: isApt ? document.getElementById('reception-date').value : null,
+                time_slot: isApt ? document.getElementById('reception-time').value : null,
+                selected_doctor_id: isApt ? document.getElementById('reception-doctor').value : null,
             };
             try {
                 const data = await apiFetch('/api/checkin', { method: 'POST', body: JSON.stringify(payload) });
-                showToast('Check-in thành công. Mã visit: ' + (data.visit?.visitID || data.visit?.id || ''));
-                checkinForm.reset();
+                showToast('Thêm bệnh nhân thành công. Mã visit: ' + (data.visit?.visitID || ''));
+                receptionForm.reset();
+                loadPatientManagement();
                 loadDashboard();
             } catch (err) {
                 showToast(err.message, 'error');
             }
         });
+
+        // Toggle fields theo hình thức tiếp đón
+        const typeSelect = document.getElementById('reception-type');
+        const aptGroup = document.getElementById('group-appointment');
+        if (typeSelect && aptGroup) {
+            typeSelect.addEventListener('change', () => {
+                if (typeSelect.value === 'appointment') {
+                    aptGroup.classList.remove('hidden');
+                } else {
+                    aptGroup.classList.add('hidden');
+                }
+            });
+        }
     }
 
-    // 4. Kích hoạt cấp cứu
+    // 2. Kích hoạt cấp cứu
     const btnEmergency = document.getElementById('btn-emergency-activate');
     if (btnEmergency) {
         btnEmergency.addEventListener('click', async () => {
@@ -808,7 +820,7 @@ function initEventHandlers() {
         });
     }
 
-    // 5. Gọi bệnh nhân tiếp theo
+    // 3. Gọi bệnh nhân tiếp theo
     const btnCallNext = document.getElementById('btn-call-next');
     if (btnCallNext) {
         btnCallNext.addEventListener('click', async () => {
@@ -819,7 +831,7 @@ function initEventHandlers() {
                     body: JSON.stringify({ room_id: window.currentRoomId })
                 });
                 if (data.visit) {
-                    window.currentVisitId = data.visit.visitId || data.visit.id;
+                    window.currentVisitId = data.visit.visitID || data.visit.visitId || data.visit.id;
                     showToast('Gọi BN: ' + (data.visit.patientName || data.visit.id));
                     loadRoomQueue(window.currentRoomId);
                 } else {
@@ -831,7 +843,7 @@ function initEventHandlers() {
         });
     }
 
-    // 6. Chỉ định dịch vụ
+    // 4. Chỉ định dịch vụ
     const btnAddServices = document.getElementById('btn-add-services');
     if (btnAddServices) {
         btnAddServices.addEventListener('click', async () => {
@@ -852,7 +864,7 @@ function initEventHandlers() {
         });
     }
 
-    // 7. Kê đơn thuốc
+    // 5. Kê đơn thuốc — GỬI MEDICINE ID thay vì tên (Fix bug tính tiền = 0)
     const btnAddMedRow = document.getElementById('btn-add-med-row');
     if (btnAddMedRow) {
         btnAddMedRow.addEventListener('click', () => {
@@ -875,9 +887,14 @@ function initEventHandlers() {
             const rows = document.querySelectorAll('#meds-list .form-group');
             const medicineList = {};
             rows.forEach(r => {
-                const name = r.querySelector('.med-name').value.trim();
+                const input = r.querySelector('.med-name');
                 const qty = parseInt(r.querySelector('.med-qty').value) || 1;
-                if (name) medicineList[name] = qty;
+                let medId = input.value.trim();
+                // Lấy medicineID từ datalist option (Fix bug tên -> ID)
+                const dl = document.getElementById('dl-medicines');
+                const opt = Array.from(dl.options).find(o => o.value === input.value);
+                if (opt) medId = opt.getAttribute('data-id') || medId;
+                if (medId) medicineList[medId] = qty;
             });
             if (!Object.keys(medicineList).length) return showToast('Vui lòng nhập thuốc', 'warning');
             try {
@@ -892,7 +909,7 @@ function initEventHandlers() {
         });
     }
 
-    // 8. Hoàn tất khám
+    // 6. Hoàn tất khám
     const btnComplete = document.getElementById('btn-complete-visit');
     if (btnComplete) {
         btnComplete.addEventListener('click', async () => {
@@ -911,7 +928,7 @@ function initEventHandlers() {
         });
     }
 
-    // 9. Chuyển khoa
+    // 7. Chuyển khoa
     const btnTransfer = document.getElementById('btn-transfer-dept');
     if (btnTransfer) {
         btnTransfer.addEventListener('click', async () => {
@@ -935,7 +952,7 @@ function initEventHandlers() {
         });
     }
 
-    // 10. Thanh toán
+    // 8. Thanh toán
     const btnPay = document.getElementById('btn-pay');
     if (btnPay) {
         btnPay.addEventListener('click', async () => {
@@ -970,7 +987,6 @@ function renderInvoice(data) {
     const box = document.getElementById('invoice-box');
     box.classList.remove('hidden');
 
-    // data.bill từ API
     const bill = data.bill || data;
     document.getElementById('inv-id').textContent = bill.billID || '--';
     document.getElementById('inv-date').textContent = new Date().toLocaleString('vi-VN');
@@ -985,7 +1001,6 @@ function renderInvoice(data) {
     tbody.innerHTML = '';
     let stt = 1;
     
-    // Lấy dịch vụ và thuốc từ bảng đã hiển thị
     const svcRows = document.querySelectorAll('#pay-services-body tr');
     svcRows.forEach(row => {
         const tds = row.querySelectorAll('td');
@@ -1012,10 +1027,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initNavigation();
     initEventHandlers();
     loadTabData('dashboard');
-    populatePatientsSelect();
     populateDoctorsSelect();
     populateDepartmentsSelect();
-    populateServicesSelect();
     populateMedicinesSelect();
-    populateRoomsSelect();
 });

@@ -92,6 +92,7 @@ class ReceptionService:
         is_appointment: bool = False,
         appointment_date: Optional[str] = None,
         time_slot: Optional[str] = None,
+        selected_doctor_id: Optional[str] = None,
     ) -> Tuple[Optional[models.Visit], str]:
         """
         Check-in bệnh nhân tại quầy tiếp đón.
@@ -100,12 +101,13 @@ class ReceptionService:
           với thông tin truyền vào (dùng placeholder nếu thiếu).
         - Tạo Visit mới với visitID = generate_id("VISIT").
         - Xác định queuePriority dựa trên severity / is_appointment.
-        - Thêm chuỗi khoa (nếu có) và xếp vào phòng có hàng đợi ngắn nhất
-          thuộc khoa đầu tiên.
+        - Nếu có đặt lịch trước, lưu thông tin lịch hẹn vào visit.
+        - Visit được tạo với status = ChoCheckIn (chưa xếp hàng đợi).
+          Hàng đợi chỉ được xếp khi bấm nút Check-in tại danh sách.
 
         Trả về:
             (visit_obj, "Check-in thành công") nếu thành công.
-            (None, message) nếu có lỗi (ví dụ khoa không có phòng).
+            (None, message) nếu có lỗi.
         """
         try:
             # --- Tạo hoặc lấy thông tin bệnh nhân ---
@@ -137,34 +139,46 @@ class ReceptionService:
             )
             visit.severity = severity
 
-            # --- Xác định mức ưu tiên và trạng thái ---
-            # Nhận cả text ("NguyKich") hoặc số từ dropdown ("3", "2", "1")
+            # --- Xác định mức ưu tiên ---
             if severity in ("3", "NguyKich", "Nguy Kịch", "nguykich"):
                 visit.queuePriority = config.PRIORITY_EMERGENCY
                 visit.status = config.STATUS_EMERGENCY
             elif is_appointment or severity in ("2", "UuTien", "Ưu tiên"):
                 visit.queuePriority = config.PRIORITY_APPOINTMENT
-                visit.status = config.STATUS_ACTIVE
+                visit.status = config.STATUS_WAITING_CHECKIN
             else:
                 visit.queuePriority = config.PRIORITY_WALKIN
-                visit.status = config.STATUS_ACTIVE
+                visit.status = config.STATUS_WAITING_CHECKIN
 
-            # --- Thêm chuỗi khoa khám ---
+            # --- Nếu có đặt lịch trước, lưu thông tin lịch hẹn ---
+            if is_appointment and selected_doctor_id and appointment_date and time_slot:
+                apt_id = algorithms.generate_id("APT")
+                appointment = models.Appointment(
+                    appointmentID=apt_id,
+                    patientID=patient_id,
+                    departmentSequence=department_sequence or [],
+                    selectedDoctorID=selected_doctor_id,
+                    appointmentDate=appointment_date,
+                    timeSlot=time_slot,
+                )
+                # Lưu lịch hẹn vào hệ thống (dùng slot_key giống register_online)
+                slot_key = (selected_doctor_id, appointment_date, time_slot)
+                slot_list = global_state.global_appointments.setdefault(slot_key, [])
+                if len(slot_list) < config.MAX_SLOT_PER_TIMESLOT:
+                    slot_list.append(appointment)
+                # Gắn appointmentID vào visit để truy vết
+                visit.appointmentID = apt_id
+
+            # --- Thêm chuỗi khoa khám (chưa xếp queue) ---
             if department_sequence:
                 for dept_id in department_sequence:
                     visit.addDepartment(dept_id)
-
-                # Bắt đầu từ khoa đầu tiên
                 visit.currentDepartmentIndex = 0
-                first_dept_id = visit.getCurrentDepartment()
-                if first_dept_id:
-                    dept = global_state.global_departments[first_dept_id]
-                    algorithms.shortest_queue_first(dept, visit)
 
             # --- Lưu lượt khám vào hệ thống ---
             global_state.global_visits[visit_id] = visit
 
-            return visit, "Check-in thành công"
+            return visit, "Tạo bệnh nhân và lượt khám thành công"
 
         except KeyError as e:
             return None, f"Không tìm thấy dữ liệu: {str(e)}"
@@ -172,6 +186,43 @@ class ReceptionService:
             return None, str(e)
         except Exception as e:
             return None, f"Lỗi check-in: {str(e)}"
+
+    def confirm_checkin(self, visit_id: str) -> Tuple[Optional[models.Visit], str]:
+        """
+        Xác nhận check-in từ danh sách tiếp đón: chuyển visit sang status DangKham
+        và xếp vào hàng đợi phòng khám của khoa hiện tại.
+
+        Trả về:
+            (visit_obj, message) nếu thành công.
+            (None, message) nếu lỗi.
+        """
+        try:
+            visit = global_state.global_visits[visit_id]
+
+            if visit.status != config.STATUS_WAITING_CHECKIN:
+                return (
+                    None,
+                    f"Lượt khám đã ở trạng thái {visit.status}, không thể check-in lại",
+                )
+
+            # Chuyển trạng thái
+            if visit.queuePriority == config.PRIORITY_EMERGENCY:
+                visit.status = config.STATUS_EMERGENCY
+            else:
+                visit.status = config.STATUS_ACTIVE
+
+            # Xếp vào phòng của khoa hiện tại (nếu có)
+            first_dept_id = visit.getCurrentDepartment()
+            if first_dept_id:
+                dept = global_state.global_departments[first_dept_id]
+                algorithms.shortest_queue_first(dept, visit)
+
+            return visit, "Check-in thành công, đã xếp vào hàng đợi"
+
+        except KeyError:
+            return None, f"Không tìm thấy lượt khám ID {visit_id}"
+        except Exception as e:
+            return None, f"Lỗi xác nhận check-in: {str(e)}"
 
     def activate_emergency(self, visit_id: str) -> Tuple[bool, str]:
         """
@@ -438,7 +489,7 @@ class PharmacyService:
 
         - Nếu có đơn thuốc: chạy two_pass_validation để kiểm tra và trừ kho.
         - Tính hóa đơn bằng calculate_bill.
-        - Đánh dấu đã thanh toán, cập nhật status = STATUS_DISCHARGED.
+        - Đánh dấu đã thanh toán, cập nhật status = STATUS_COMPLETED (giữ nguyên DB).
         - Dọn dẹp: xóa visit khỏi mọi room queue (nếu còn sót)
           và giải phóng currentVisitID của phòng.
 
@@ -466,8 +517,8 @@ class PharmacyService:
             # --- Thanh toán ---
             bill.markPaid()
 
-            # --- Xuất viện ---
-            visit.status = config.STATUS_DISCHARGED
+            # --- Hoàn tất: giữ nguyên trong DB, chỉ đổi trạng thái ---
+            visit.status = config.STATUS_COMPLETED
 
             # --- Dọn dẹp phòng và hàng đợi ---
             for room in global_state.global_rooms.values():

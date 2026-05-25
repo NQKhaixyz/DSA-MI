@@ -266,7 +266,7 @@ def api_appointments():
 
 @app.route("/api/checkin", methods=["POST"])
 def api_checkin():
-    """Check-in bệnh nhân tại quầy tiếp đón."""
+    """Tạo bệnh nhân + lượt khám mới từ form tiếp đón (chưa xếp queue)."""
     try:
         body = request.get_json(force=True) or {}
         visit, msg = reception_svc.checkin_patient(
@@ -281,6 +281,9 @@ def api_checkin():
             severity=body.get("severity", "BinhThuong"),
             department_sequence=body.get("department_sequence", []),
             is_appointment=body.get("is_appointment", False),
+            appointment_date=body.get("appointment_date"),
+            time_slot=body.get("time_slot"),
+            selected_doctor_id=body.get("selected_doctor_id"),
         )
         return jsonify(
             {
@@ -289,6 +292,80 @@ def api_checkin():
                 "visit": visit.to_dict() if visit else None,
             }
         )
+    except Exception as e:
+        return handle_error(e)
+
+
+@app.route("/api/confirm-checkin/<visit_id>", methods=["POST"])
+def api_confirm_checkin(visit_id):
+    """Xác nhận check-in: đẩy bệnh nhân vào hàng đợi phòng khám."""
+    try:
+        visit, msg = reception_svc.confirm_checkin(visit_id)
+        return jsonify(
+            {
+                "success": visit is not None,
+                "message": msg,
+                "visit": visit.to_dict() if visit else None,
+            }
+        )
+    except Exception as e:
+        return handle_error(e)
+
+
+@app.route("/api/today-visits", methods=["GET"])
+def api_today_visits():
+    """Trả danh sách lượt khám trong ngày (cả trực tiếp và đặt lịch) kèm thông tin BN."""
+    try:
+        from datetime import datetime
+
+        today_str = datetime.now().strftime("%d/%m/%Y")
+        data = []
+        for visit in global_state.global_visits.values():
+            if visit.visitDate == today_str:
+                patient = global_state.global_patients.get(visit.patientID)
+                dept_name = "--"
+                current_dept = visit.getCurrentDepartment()
+                if current_dept and current_dept in global_state.global_departments:
+                    dept_name = global_state.global_departments[
+                        current_dept
+                    ].departmentName
+
+                # Xác định hình thức tiếp đón
+                reception_type = "Khám trực tiếp"
+                if getattr(visit, "appointmentID", None):
+                    reception_type = "Có đặt lịch trước"
+                elif visit.queuePriority == config.PRIORITY_APPOINTMENT:
+                    reception_type = "Có đặt lịch trước"
+
+                data.append(
+                    {
+                        "visitID": visit.visitID,
+                        "patientID": visit.patientID,
+                        "patientName": patient.fullName if patient else "Không rõ",
+                        "receptionType": reception_type,
+                        "departmentName": dept_name,
+                        "status": visit.status,
+                        "queuePriority": visit.queuePriority,
+                    }
+                )
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        return handle_error(e)
+
+
+@app.route("/api/rooms/<id>/services", methods=["GET"])
+def api_room_services(id):
+    """Trả danh sách dịch vụ thuộc khoa của phòng khám."""
+    try:
+        room = global_state.global_rooms.get(id)
+        if not room:
+            return jsonify({"success": False, "error": "Không tìm thấy phòng"}), 404
+        services = [
+            s.to_dict()
+            for s in global_state.global_services.values()
+            if s.departmentID == room.departmentID
+        ]
+        return jsonify({"success": True, "data": services})
     except Exception as e:
         return handle_error(e)
 
@@ -404,7 +481,7 @@ def api_payment_detail(visit_id):
     Trả về thông tin đầy đủ để thanh toán:
     - Tên bệnh nhân, bác sĩ, khoa
     - Danh sách dịch vụ (tên + giá)
-    - Danh sách thuốc (tên + đơn giá + số lượng)
+    - Danh sách thuốc (tên + đơn giá + số lượng) — lấy từ Kho dược
     - Trạng thái BHYT
     """
     try:
@@ -427,7 +504,7 @@ def api_payment_detail(visit_id):
                     }
                 )
 
-        # Thuốc trong đơn
+        # Thuốc trong đơn — lấy đơn giá từ Kho dược (Medicine Inventory)
         medicines_list = []
         if visit.prescriptionID:
             pres = global_state.global_prescriptions.get(visit.prescriptionID)
@@ -482,7 +559,7 @@ def api_active_visits():
     try:
         active = []
         for visit in global_state.global_visits.values():
-            if visit.status != config.STATUS_DISCHARGED:
+            if visit.status not in (config.STATUS_DISCHARGED, config.STATUS_COMPLETED):
                 patient = global_state.global_patients.get(visit.patientID)
                 active.append(
                     {
@@ -499,7 +576,7 @@ def api_active_visits():
 
 @app.route("/api/pay", methods=["POST"])
 def api_pay():
-    """Xử lý thanh toán cho lượt khám."""
+    """Xử lý thanh toán cho lượt khám — giữ nguyên bản ghi trong DB."""
     try:
         body = request.get_json(force=True) or {}
         ok, msg, bill = pharmacy_svc.process_payment(body.get("visit_id", ""))

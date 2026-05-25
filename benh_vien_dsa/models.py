@@ -123,6 +123,7 @@ class Visit:
         self.usedServiceIDs: list[str] = []  # Các dịch vụ đã sử dụng
         self.prescriptionID: Optional[str] = None  # ID đơn thuốc
         self.billID: Optional[str] = None  # ID hóa đơn
+        self.appointmentID: Optional[str] = None  # ID lịch hẹn (nếu có)
         self.visited_departments: set[str] = (
             set()
         )  # Tập hợp các khoa đã khám (tránh lặp/cycle)
@@ -210,6 +211,7 @@ class Visit:
             "usedServiceIDs": self.usedServiceIDs,
             "prescriptionID": self.prescriptionID,
             "billID": self.billID,
+            "appointmentID": self.appointmentID,
             "visited_departments": list(self.visited_departments),
         }
 
@@ -232,6 +234,7 @@ class Visit:
         obj.usedServiceIDs = data.get("usedServiceIDs", [])
         obj.prescriptionID = data.get("prescriptionID")
         obj.billID = data.get("billID")
+        obj.appointmentID = data.get("appointmentID")
         obj.visited_departments = set(data.get("visited_departments", []))
         return obj
 
