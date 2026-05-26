@@ -448,6 +448,7 @@ class Room:
             "departmentID": self.departmentID,
             "doctorID": self.doctorID,
             "queues": queues_data,
+            "queueLength": self.getQueueSize(),
             "currentVisitID": self.currentVisitID,
         }
 

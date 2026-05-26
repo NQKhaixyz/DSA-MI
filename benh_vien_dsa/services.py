@@ -426,7 +426,8 @@ class DoctorService:
         - Giải phóng phòng hiện tại (currentVisitID = None).
         - Gọi visit.moveToNextDepartment(). Nếu còn khoa tiếp theo,
           tự động xếp vào phòng của khoa đó.
-        - Nếu không còn khoa, cập nhật status = "ChoThanhToan".
+        - Nếu không còn khoa, xóa visit khỏi hàng đợi phòng hiện tại (nếu còn sót),
+          xóa assignedRoomID, và cập nhật status = "ChoThanhToan".
 
         Trả về:
             (True, message) nếu thành công.
@@ -441,6 +442,13 @@ class DoctorService:
                 room = global_state.global_rooms[current_room_id]
                 room.currentVisitID = None
 
+                # Xóa visit khỏi hàng đợi phòng nếu còn sót (phòng trường hợp chưa được gọi)
+                try:
+                    room.queues.remove(visit, visit.queuePriority)
+                except (ValueError, KeyError):
+                    # Visit không còn trong hàng đợi (đã bị pop trước đó)
+                    pass
+
             # Kiểm tra và chuyển sang khoa tiếp theo
             next_dept_id = visit.moveToNextDepartment()
             if next_dept_id is not None:
@@ -448,7 +456,8 @@ class DoctorService:
                 algorithms.shortest_queue_first(dept, visit)
                 return True, "Hoàn tất khám khoa hiện tại, chuyển sang khoa tiếp theo"
 
-            # Hết chuỗi khoa -> chờ thanh toán
+            # Hết chuỗi khoa -> xóa assignedRoomID và chờ thanh toán
+            visit.assignedRoomID = None
             visit.status = "ChoThanhToan"
             return True, "Hoàn tất khám, chờ thanh toán"
 

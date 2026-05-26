@@ -389,6 +389,37 @@ DSA-MI/
 
 ## 14. Changelog - Các chức năng đã cập nhật
 
+### v2.2 - Bug Fixes & UI Polish (26/05/2026)
+
+#### ✅ Fix Dashboard hiển thị sai số liệu
+- **Bug:** Bệnh nhân đã check-in, thanh toán xong vẫn hiển thị trong "Lượt khám đang chờ"
+- **Root cause:** 
+  - Backend `api_dashboard()` đếm tất cả visit chưa `DISCHARGED` (kể cả `ChoThanhToan`, `DaHoanThanh`)
+  - `complete_examination()` không xóa visit khỏi `room.queue` khi hết chuỗi khoa
+  - Frontend `renderWaitingTable()` không lọc theo status
+- **Fix:**
+  - Chỉ đếm visit có status `ChoCheckIn`, `DangKham`, `CapCuu`
+  - Xóa visit khỏi queue + clear `assignedRoomID` khi hoàn tất khám
+  - Frontend lọc chỉ hiển thị visit đang thực sự active
+
+#### ✅ Fix Phòng khám hiển thị "0 BN chờ"
+- **Bug:** Check-in xong nhưng card phòng luôn hiển thị "0 BN đang chờ"
+- **Root cause:** `Room.to_dict()` không trả về `queueLength`, frontend đọc `undefined` → `0`
+- **Fix:** Thêm `"queueLength": self.getQueueSize()` vào `to_dict()`
+
+#### ✅ Fix "Đang khám" hiển thị `--` thay vì tên BN + STT
+- **Bug:** Box "Bệnh nhân đang khám" hiển thị: `Tên: Đang khám`, `STT: --`, `Số lớn: --`
+- **Root cause:** API `/api/rooms/<id>/queue` chỉ trả `currentVisitID`, không trả `patientName` và `stt`
+- **Fix:**
+  - Backend trả thêm `currentVisitInfo` gồm `patientName` và `stt` (tính = queueSize + 1)
+  - Frontend hiển thị đúng tên BN và số thứ tự
+
+#### ✅ UI/UX Improvements
+- Giữ nguyên giao diện xanh medical chuyên nghiệp (rollback từ hồng pastel)
+- Badge màu chính xác theo priority (Đỏ/Cấp cứu, Vàng/Ưu tiên, Xanh/Thường)
+
+---
+
 ### v2.1 - Major Refactor (25/05/2026)
 
 #### ✅ Tab "Quản lý Bệnh nhân" (Gộp Lễ tân + Bệnh nhân)
@@ -453,4 +484,4 @@ DSA-MI/
 ---
 
 *Đồ án môn Cấu trúc Dữ liệu & Thuật toán (DSA)*  
-*Cập nhật: 25/05/2026*
+*Cập nhật: 26/05/2026*

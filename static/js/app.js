@@ -174,41 +174,42 @@ async function loadDashboard() {
         document.getElementById('dash-active-visits').textContent = data.active_visits ?? 0;
         document.getElementById('dash-emergency').textContent = data.emergency_count ?? 0;
 
-        const rooms = await apiFetch('/api/rooms');
-        renderWaitingTable(rooms);
+        // Sử dụng waiting_list từ API thay vì gọi /api/rooms
+        renderWaitingTable(data.waiting_list || []);
     } catch (err) {
         showToast(err.message, 'error');
     }
 }
 
 // ============================================
-// Render bảng bệnh nhân đang chờ từ danh sách phòng
+// Render bảng bệnh nhân đang chờ từ danh sách chờ
 // ============================================
-function renderWaitingTable(rooms) {
+function renderWaitingTable(waitingList) {
     const tbody = document.getElementById('waiting-tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
 
     let stt = 1;
-    (rooms || []).forEach(room => {
-        if (!room.queue || !room.queue.length) return;
-        room.queue.forEach(visit => {
-            const tmpl = document.getElementById('tmpl-waiting-row');
-            if (!tmpl) return;
-            const row = tmpl.content.cloneNode(true);
-            row.querySelector('.w-stt').textContent = stt++;
-            row.querySelector('.w-name').textContent = visit.patientName || '--';
-            row.querySelector('.w-dept').textContent = visit.departmentName || room.departmentName || '--';
-            row.querySelector('.w-room').textContent = room.name || '--';
+    (waitingList || []).forEach(visit => {
+        // Chỉ hiển thị visit đang thực sự chờ hoặc đang khám
+        const activeStatuses = ['ChoCheckIn', 'DangKham', 'CapCuu'];
+        if (!activeStatuses.includes(visit.status)) return;
 
-            const badge = row.querySelector('.w-priority .badge');
-            const p = visit.priority || 1;
-            badge.textContent = p === 3 ? 'Cấp cứu' : (p === 2 ? 'Ưu tiên' : 'Thường');
-            badge.className = 'badge ' + (p === 3 ? 'badge-red' : (p === 2 ? 'badge-yellow' : 'badge-green'));
+        const tmpl = document.getElementById('tmpl-waiting-row');
+        if (!tmpl) return;
+        const row = tmpl.content.cloneNode(true);
+        row.querySelector('.w-stt').textContent = stt++;
+        row.querySelector('.w-name').textContent = visit.patientName || '--';
+        row.querySelector('.w-dept').textContent = visit.departmentName || '--';
+        row.querySelector('.w-room').textContent = visit.roomName || '--';
 
-            row.querySelector('.w-wait').textContent = visit.waitTime || '--';
-            tbody.appendChild(row);
-        });
+        const badge = row.querySelector('.w-priority .badge');
+        const p = visit.priority || 1;
+        badge.textContent = p === 3 ? 'Cấp cứu' : (p === 2 ? 'Ưu tiên' : 'Thường');
+        badge.className = 'badge ' + (p === 3 ? 'badge-red' : (p === 2 ? 'badge-yellow' : 'badge-green'));
+
+        row.querySelector('.w-wait').textContent = visit.waitTime || '--';
+        tbody.appendChild(row);
     });
 }
 
@@ -472,19 +473,36 @@ function renderRoomQueue(data) {
     qBooking.innerHTML = '';
     qWalkin.innerHTML = '';
 
-    (data.priority3 || []).forEach(v => qEmergency.appendChild(makeQueueItem(v, 'red-border')));
-    (data.priority2 || []).forEach(v => qBooking.appendChild(makeQueueItem(v, 'yellow-border')));
-    (data.priority1 || []).forEach(v => qWalkin.appendChild(makeQueueItem(v, 'green-border')));
+    // Chỉ hiển thị visit đang thực sự chờ hoặc đang khám
+    const activeStatuses = ['ChoCheckIn', 'DangKham', 'CapCuu'];
+    
+    (data.priority3 || []).forEach(v => {
+        if (activeStatuses.includes(v.status)) {
+            qEmergency.appendChild(makeQueueItem(v, 'red-border'));
+        }
+    });
+    (data.priority2 || []).forEach(v => {
+        if (activeStatuses.includes(v.status)) {
+            qBooking.appendChild(makeQueueItem(v, 'yellow-border'));
+        }
+    });
+    (data.priority1 || []).forEach(v => {
+        if (activeStatuses.includes(v.status)) {
+            qWalkin.appendChild(makeQueueItem(v, 'green-border'));
+        }
+    });
 
     const currentId = data.currentVisit;
     const visitBox = document.getElementById('current-visit-box');
     const callBox = document.getElementById('call-next-box');
     if (currentId) {
         window.currentVisitId = currentId;
-        document.getElementById('cv-name').textContent = 'Đang khám';
+        const cvInfo = data.currentVisitInfo || {};
+        document.getElementById('cv-name').textContent = cvInfo.patientName || 'Đang khám';
         document.getElementById('cv-code').textContent = currentId;
-        document.getElementById('cv-stt').textContent = '--';
-        document.getElementById('cv-big-stt').textContent = '--';
+        const stt = cvInfo.stt || '--';
+        document.getElementById('cv-stt').textContent = stt;
+        document.getElementById('cv-big-stt').textContent = stt;
         visitBox.classList.remove('hidden');
         callBox.classList.add('hidden');
     } else {

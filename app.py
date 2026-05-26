@@ -47,11 +47,41 @@ def api_dashboard():
     try:
         active_visits = 0
         emergency_count = 0
+        waiting_list = []
+
         for v in global_state.global_visits.values():
-            if v.status != config.STATUS_DISCHARGED:
+            if v.status in (
+                config.STATUS_WAITING_CHECKIN,
+                config.STATUS_ACTIVE,
+                config.STATUS_EMERGENCY,
+            ):
                 active_visits += 1
-            if v.status == config.STATUS_EMERGENCY:
-                emergency_count += 1
+                if v.status == config.STATUS_EMERGENCY:
+                    emergency_count += 1
+
+                # Thêm vào danh sách chờ nếu đang trong hàng đợi
+                patient = global_state.global_patients.get(v.patientID)
+                room = (
+                    global_state.global_rooms.get(v.assignedRoomID)
+                    if v.assignedRoomID
+                    else None
+                )
+                dept_name = "--"
+                if room and room.departmentID in global_state.global_departments:
+                    dept_name = global_state.global_departments[
+                        room.departmentID
+                    ].departmentName
+
+                waiting_list.append(
+                    {
+                        "visitID": v.visitID,
+                        "patientName": patient.fullName if patient else "Không rõ",
+                        "departmentName": dept_name,
+                        "roomName": room.roomID if room else "--",
+                        "priority": v.queuePriority,
+                        "status": v.status,
+                    }
+                )
 
         total_queue_sizes = sum(
             room.getQueueSize() for room in global_state.global_rooms.values()
@@ -67,6 +97,7 @@ def api_dashboard():
                 "active_visits": active_visits,
                 "emergency_count": emergency_count,
                 "total_queue_sizes": total_queue_sizes,
+                "waiting_list": waiting_list,
             }
         )
     except Exception as e:
@@ -199,6 +230,7 @@ def api_room_queue(id):
                     else ("Ưu tiên" if v.queuePriority == 2 else "Thường")
                 ),
                 "severity": v.severity,
+                "status": v.status,
             }
 
         queue_data = {
@@ -212,7 +244,20 @@ def api_room_queue(id):
                 _visit_to_queue_item(v) for v in room.queues.queues.get(1, [])
             ],
             "currentVisit": room.currentVisitID,
+            "currentVisitInfo": None,
         }
+
+        # Thêm thông tin chi tiết của bệnh nhân đang khám
+        if room.currentVisitID:
+            current_visit = global_state.global_visits.get(room.currentVisitID)
+            if current_visit:
+                patient = global_state.global_patients.get(current_visit.patientID)
+                queue_data["currentVisitInfo"] = {
+                    "patientName": patient.fullName if patient else "Không rõ",
+                    "stt": room.getQueueSize()
+                    + 1,  # STT = số người chờ + người đang khám
+                }
+
         return jsonify({"success": True, "data": queue_data})
     except Exception as e:
         return handle_error(e)
