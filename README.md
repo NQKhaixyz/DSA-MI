@@ -414,6 +414,19 @@ DSA-MI/
   - Backend trả thêm `currentVisitInfo` gồm `patientName` và `stt` (tính = queueSize + 1)
   - Frontend hiển thị đúng tên BN và số thứ tự
 
+#### ✅ Fix Check-in tạo bệnh nhân trùng lặp
+- **Bug:** Check-in 2 bệnh nhân khác nhau nhưng dashboard hiển thị cùng 1 tên
+- **Root cause:** Frontend không gửi `patient_id`, backend dùng `patient_id=""` (rỗng). Cả 2 lần đều tạo visit với `patientID=""`, trỏ đến cùng 1 patient object trong `global_patients["")]`
+- **Fix:** Backend tự động generate `patient_id` (dạng `BN_xxx`) nếu frontend không gửi
+
+#### ✅ Fix Lọc bác sĩ theo khoa trong đặt lịch
+- **Bug:** Dropdown bác sĩ trong form "Có đặt lịch trước" hiển thị **tất cả** bác sĩ trong viện, không phân biệt khoa
+- **Root cause:** `populateDoctorsSelect()` gọi `/api/doctors` (toàn bộ), không lọc theo khoa đã chọn
+- **Fix:**
+  - `populateDoctorsSelect(deptId)` giờ nhận tham số `deptId`
+  - Nếu có `deptId`, gọi `/api/departments/<deptId>/doctors` để chỉ lấy bác sĩ trong khoa đó
+  - Event listener: Khi thay đổi khoa (`reception-dept`), tự động cập nhật danh sách bác sĩ theo khoa mới
+
 #### ✅ UI/UX Improvements
 - Giữ nguyên giao diện xanh medical chuyên nghiệp (rollback từ hồng pastel)
 - Badge màu chính xác theo priority (Đỏ/Cấp cứu, Vàng/Ưu tiên, Xanh/Thường)
