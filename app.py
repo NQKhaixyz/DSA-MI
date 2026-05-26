@@ -45,6 +45,10 @@ def handle_error(e: Exception):
 def api_dashboard():
     """Trả về các chỉ số tổng quan của hệ thống."""
     try:
+        from datetime import datetime
+
+        now = datetime.now()
+
         active_visits = 0
         emergency_count = 0
         waiting_list = []
@@ -66,11 +70,33 @@ def api_dashboard():
                     if v.assignedRoomID
                     else None
                 )
+
+                # Bỏ qua nếu bệnh nhân đang được khám (không phải "đang chờ")
+                if room and room.currentVisitID == v.visitID:
+                    continue
+
                 dept_name = "--"
                 if room and room.departmentID in global_state.global_departments:
                     dept_name = global_state.global_departments[
                         room.departmentID
                     ].departmentName
+
+                # Tính thời gian chờ
+                wait_time_str = "--"
+                if v.arrivalTime:
+                    try:
+                        arr = datetime.strptime(v.arrivalTime, "%H:%M:%S")
+                        delta = now - arr.replace(
+                            year=now.year, month=now.month, day=now.day
+                        )
+                        if delta.total_seconds() < 0:
+                            delta = now - arr.replace(
+                                year=now.year, month=now.month, day=now.day - 1
+                            )
+                        mins = int(delta.total_seconds() // 60)
+                        wait_time_str = f"{mins} phút"
+                    except:
+                        pass
 
                 waiting_list.append(
                     {
@@ -80,6 +106,7 @@ def api_dashboard():
                         "roomName": room.roomID if room else "--",
                         "priority": v.queuePriority,
                         "status": v.status,
+                        "waitTime": wait_time_str,
                     }
                 )
 
@@ -314,8 +341,12 @@ def api_checkin():
     """Tạo bệnh nhân + lượt khám mới từ form tiếp đón (chưa xếp queue)."""
     try:
         body = request.get_json(force=True) or {}
+        # Nếu frontend không gửi patient_id, tự động tạo ID duy nhất
+        patient_id = body.get("patient_id", "")
+        if not patient_id:
+            patient_id = algorithms.generate_id("BN")
         visit, msg = reception_svc.checkin_patient(
-            patient_id=body.get("patient_id", ""),
+            patient_id=patient_id,
             full_name=body.get("full_name"),
             gender=body.get("gender"),
             dob=body.get("dob"),
