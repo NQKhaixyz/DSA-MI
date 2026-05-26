@@ -443,10 +443,24 @@ class Room:
         queues_data = {}
         for priority, q in self.queues.queues.items():
             queues_data[str(priority)] = [visit.visitID for visit in q]
+
+        # Lấy tên bác sĩ từ global_doctors nếu có
+        doctor_name = "Không rõ"
+        try:
+            from . import global_state
+
+            doc = global_state.global_doctors.get(self.doctorID)
+            if doc:
+                doctor_name = doc.fullName
+        except:
+            pass
+
         return {
             "roomID": self.roomID,
+            "name": self.roomID,  # Alias cho frontend
             "departmentID": self.departmentID,
             "doctorID": self.doctorID,
+            "doctorName": doctor_name,  # Thêm tên bác sĩ cho frontend
             "queues": queues_data,
             "queueLength": self.getQueueSize(),
             "currentVisitID": self.currentVisitID,
