@@ -124,7 +124,7 @@ function initNavigation() {
 
             // Dừng auto-refresh cũ và load tab mới
             if (refreshInterval) {
-                clearInterval(refreshInterval);
+                clearTimeout(refreshInterval);
                 refreshInterval = null;
             }
             loadTabData(tab);
@@ -138,8 +138,7 @@ function initNavigation() {
 function loadTabData(tab) {
     switch (tab) {
         case 'dashboard':
-            loadDashboard();
-            refreshInterval = setInterval(loadDashboard, 5000);
+            startDashboardRefresh();
             break;
         case 'patients':
             loadPatientManagement();
@@ -166,6 +165,12 @@ function loadTabData(tab) {
 // ============================================
 // Dashboard: Load thống kê và bảng chờ khám
 // ============================================
+function startDashboardRefresh() {
+    loadDashboard().then(() => {
+        refreshInterval = setTimeout(startDashboardRefresh, 5000);
+    });
+}
+
 async function loadDashboard() {
     try {
         const data = await apiFetch('/api/dashboard');
@@ -683,16 +688,23 @@ function initSettings() {
 // ============================================
 // Populate Select Boxes
 // ============================================
-async function populateDoctorsSelect() {
+async function populateDoctorsSelect(deptId) {
     try {
-        const doctors = await apiFetch('/api/doctors');
         const sel = document.getElementById('reception-doctor');
         if (!sel) return;
         sel.innerHTML = '<option value="">-- Chọn bác sĩ --</option>';
+        
+        let doctors = [];
+        if (deptId) {
+            doctors = await apiFetch('/api/departments/' + deptId + '/doctors');
+        } else {
+            doctors = await apiFetch('/api/doctors');
+        }
+        
         (doctors || []).forEach(d => {
             const opt = document.createElement('option');
             opt.value = d.doctorID || d.id;
-            opt.textContent = (d.fullName || d.name || '--') + ' - ' + (d.degree || d.specialty || d.departmentID || '');
+            opt.textContent = (d.fullName || d.name || '--') + ' - ' + (d.degree || d.specialty || '');
             sel.appendChild(opt);
         });
     } catch (err) {
@@ -810,12 +822,28 @@ function initEventHandlers() {
         // Toggle fields theo hình thức tiếp đón
         const typeSelect = document.getElementById('reception-type');
         const aptGroup = document.getElementById('group-appointment');
+        const deptSelect = document.getElementById('reception-dept');
+        
         if (typeSelect && aptGroup) {
             typeSelect.addEventListener('change', () => {
                 if (typeSelect.value === 'appointment') {
                     aptGroup.classList.remove('hidden');
+                    // Khi chuyển sang đặt lịch, load bác sĩ theo khoa hiện tại
+                    const currentDept = deptSelect ? deptSelect.value : '';
+                    if (currentDept) {
+                        populateDoctorsSelect(currentDept);
+                    }
                 } else {
                     aptGroup.classList.add('hidden');
+                }
+            });
+        }
+        
+        // Khi thay đổi khoa, cập nhật danh sách bác sĩ theo khoa (nếu đang ở chế độ đặt lịch)
+        if (deptSelect) {
+            deptSelect.addEventListener('change', () => {
+                if (typeSelect && typeSelect.value === 'appointment') {
+                    populateDoctorsSelect(deptSelect.value);
                 }
             });
         }
