@@ -95,7 +95,464 @@ python -m unittest benh_vien_dsa.tests -v
 
 **Tổng kết:** 27/27 test cases passed (100%)
 
-### 2.2. Kiểm thử BHYT tùy chỉnh (v2.3)
+### 2.2. Kịch bản kiểm thử tự động chi tiết
+
+#### 2.2.1. Kiểm thử hàng đợi đa mức ưu tiên (MultiLevelQueue)
+
+**Kịch bản:** TC-001  
+**Mục tiêu:** Kiểm tra enqueue và dequeue theo đúng thứ tự ưu tiên  
+**Các bước:**
+1. Tạo MultiLevelQueue mới
+2. Enqueue 3 visit với priority: 1 (Thường), 2 (Ưu tiên), 3 (Cấp cứu)
+3. Dequeue lần lượt
+
+**Expected Result:**
+- Lần 1: Visit priority 3 (Cấp cứu)
+- Lần 2: Visit priority 2 (Ưu tiên)
+- Lần 3: Visit priority 1 (Thường)
+- Lần 4: None (hàng đợi rỗng)
+
+**Actual Result:** ✅ Pass  
+**Ghi chú:** Thứ tự đúng 3→2→1
+
+---
+
+**Kịch bản:** TC-002  
+**Mục tiêu:** Kiểm tra appendleft_emergency (đẩy cấp cứu lên đầu)  
+**Các bước:**
+1. Enqueue visit A với priority 3
+2. Dùng appendleft_emergency cho visit B
+3. Dequeue
+
+**Expected Result:**
+- Lần 1: Visit B (vừa thêm emergency)
+- Lần 2: Visit A
+
+**Actual Result:** ✅ Pass  
+**Ghi chú:** Emergency visit luôn được ưu tiên tuyệt đối
+
+---
+
+#### 2.2.2. Kiểm thử Strict Priority Call Next
+
+**Kịch bản:** TC-003  
+**Mục tiêu:** Gọi số trên phòng rỗng  
+**Các bước:**
+1. Tạo Room mới
+2. Gọi strict_priority_call_next
+
+**Expected Result:** Trả về None
+
+**Actual Result:** ✅ Pass
+
+---
+
+**Kịch bản:** TC-004  
+**Mục tiêu:** Gọi số khi có nhiều BN trong hàng đợi  
+**Các bước:**
+1. Thêm 2 BN vào queue (priority 1 và 2)
+2. Gọi strict_priority_call_next
+
+**Expected Result:** Trả về BN có priority 2
+
+**Actual Result:** ✅ Pass  
+**Ghi chú:** Ưu tiên đúng mức cao hơn
+
+---
+
+#### 2.2.3. Kiểm thử Shortest Queue First (SQF)
+
+**Kịch bản:** TC-005  
+**Mục tiêu:** Chọn phòng có queue ngắn nhất  
+**Các bước:**
+1. Tạo Department với 2 phòng
+2. Phòng 1 có 2 BN trong queue
+3. Phòng 2 có 0 BN trong queue
+4. Gọi shortest_queue_first với visit mới
+
+**Expected Result:** Visit được xếp vào Phòng 2
+
+**Actual Result:** ✅ Pass  
+**Ghi chú:** Cân bằng tải đúng
+
+---
+
+**Kịch bản:** TC-006  
+**Mục tiêu:** SQF khi không có phòng khả dụng  
+**Các bước:**
+1. Tạo Department không có phòng
+2. Gọi shortest_queue_first
+
+**Expected Result:** Ném ValueError
+
+**Actual Result:** ✅ Pass
+
+---
+
+#### 2.2.4. Kiểm thử Cycle Detection
+
+**Kịch bản:** TC-007  
+**Mục tiêu:** Chuyển khoa mới không vi phạm  
+**Các bước:**
+1. Tạo Visit đã có khoa A
+2. Gọi cycle_detection với khoa B
+
+**Expected Result:** Trả về (True, "Chuyển khoa thành công")
+
+**Actual Result:** ✅ Pass
+
+---
+
+**Kịch bản:** TC-008  
+**Mục tiêu:** Chuyển khoa đã khám (cycle)  
+**Các bước:**
+1. Tạo Visit đã có khoa A
+2. Gọi cycle_detection với khoa A
+
+**Expected Result:** Trả về (False, "Lỗi: Bệnh nhân đã khám khoa này trong ngày!")
+
+**Actual Result:** ✅ Pass
+
+---
+
+**Kịch bản:** TC-009  
+**Mục tiêu:** Vượt quá giới hạn 3 khoa/ngày  
+**Các bước:**
+1. Tạo Visit đã có 3 khoa
+2. Gọi cycle_detection với khoa thứ 4
+
+**Expected Result:** Trả về (False, "Lỗi: Đã vượt quá số lượng 3 khoa/ngày!")
+
+**Actual Result:** ✅ Pass
+
+---
+
+#### 2.2.5. Kiểm thử Two-Pass Validation
+
+**Kịch bản:** TC-010  
+**Mục tiêu:** Xuất kho đủ thuốc  
+**Các bước:**
+1. Tạo Medicine với stock = 100
+2. Tạo Prescription yêu cầu 10
+3. Gọi two_pass_validation
+
+**Expected Result:** Trả về (True, "Xuất kho và lập hóa đơn thành công"), stock còn 90
+
+**Actual Result:** ✅ Pass
+
+---
+
+**Kịch bản:** TC-011  
+**Mục tiêu:** Xuất kho thiếu thuốc (Pass 1 fail)  
+**Các bước:**
+1. Tạo Medicine với stock = 5
+2. Tạo Prescription yêu cầu 10
+3. Gọi two_pass_validation
+
+**Expected Result:** Trả về (False, "Lỗi: Kho không đủ số lượng cho thuốc ID xxx")
+
+**Actual Result:** ✅ Pass  
+**Ghi chú:** Pass 1 (Read-only) phát hiện thiếu, không thay đổi kho
+
+---
+
+**Kịch bản:** TC-012  
+**Mục tiêu:** Thuốc không tồn tại trong kho  
+**Các bước:**
+1. Tạo Prescription với medicineID không tồn tại
+2. Gọi two_pass_validation
+
+**Expected Result:** Trả về (False, "Lỗi: Kho không đủ số lượng cho thuốc ID xxx")
+
+**Actual Result:** ✅ Pass
+
+---
+
+#### 2.2.6. Kiểm thử Tính hóa đơn (Bill Calculation)
+
+**Kịch bản:** TC-013  
+**Mục tiêu:** Có BHYT giảm 80%  
+**Các bước:**
+1. Tạo Patient có BHYT
+2. Tạo Visit với 1 dịch vụ 100,000đ
+3. Gọi calculate_bill
+
+**Expected Result:**
+- serviceCost = 100,000
+- insuranceDiscount = 80,000
+- finalTotal = 20,000
+
+**Actual Result:** ✅ Pass
+
+---
+
+**Kịch bản:** TC-014  
+**Mục tiêu:** Không có BHYT  
+**Các bước:**
+1. Tạo Patient không có BHYT
+2. Tạo Visit với dịch vụ 100,000đ + thuốc 50,000đ
+3. Gọi calculate_bill
+
+**Expected Result:**
+- serviceCost = 100,000
+- medicineCost = 50,000
+- insuranceDiscount = 0
+- finalTotal = 150,000
+
+**Actual Result:** ✅ Pass
+
+---
+
+**Kịch bản:** TC-015  
+**Mục tiêu:** BHYT giảm 100% (miễn phí)  
+**Các bước:**
+1. Tạo Patient có BHYT
+2. Tạo Visit với tổng 150,000đ
+3. Gọi calculate_bill với discount = 100%
+
+**Expected Result:**
+- finalTotal = 0
+
+**Actual Result:** ✅ Pass
+
+---
+
+**Kịch bản:** TC-016  
+**Mục tiêu:** Tổng tiền âm (edge case)  
+**Các bước:**
+1. Tạo Bill với serviceCost = 0, medicineCost = 0
+2. Gọi calculateTotal
+
+**Expected Result:** finalTotal = 0 (không âm)
+
+**Actual Result:** ✅ Pass
+
+---
+
+#### 2.2.7. Kiểm thử Models
+
+**Kịch bản:** TC-017  
+**Mục tiêu:** Cập nhật thông tin Patient  
+**Các bước:**
+1. Tạo Patient
+2. Gọi updateInfo(phone="0909123456", address="HN")
+
+**Expected Result:** phone và address được cập nhật
+
+**Actual Result:** ✅ Pass
+
+---
+
+**Kịch bản:** TC-018  
+**Mục tiêu:** Thêm khoa vào Visit  
+**Các bước:**
+1. Tạo Visit
+2. Gọi addDepartment("NoiTongQuat")
+
+**Expected Result:** Trả về (True, "Thêm khoa 'NoiTongQuat' thành công.")
+
+**Actual Result:** ✅ Pass
+
+---
+
+**Kịch bản:** TC-019  
+**Mục tiêu:** Xuất kho Medicine đủ số lượng  
+**Các bước:**
+1. Tạo Medicine với stock = 100
+2. Gọi deductStock(50)
+
+**Expected Result:** Trả về True, stock còn 50
+
+**Actual Result:** ✅ Pass
+
+---
+
+**Kịch bản:** TC-020  
+**Mục tiêu:** Xuất kho Medicine vượt số lượng  
+**Các bước:**
+1. Tạo Medicine với stock = 10
+2. Gọi deductStock(50)
+
+**Expected Result:** Trả về False, stock không đổi
+
+**Actual Result:** ✅ Pass
+
+---
+
+#### 2.2.8. Kiểm thử Reception Service
+
+**Kịch bản:** TC-021  
+**Mục tiêu:** Đặt lịch hẹn khi slot đầy  
+**Các bước:**
+1. Tạo 4 lịch hẹn cùng slot (max = 4)
+2. Đặt lịch hẹn thứ 5 cùng slot
+
+**Expected Result:** Trả về (False, "Khung giờ đã đầy, vui lòng chọn khung giờ khác.")
+
+**Actual Result:** ✅ Pass
+
+---
+
+**Kịch bản:** TC-022  
+**Mục tiêu:** Đặt lịch hẹn thành công  
+**Các bước:**
+1. Tạo slot trống
+2. Gọi register_online
+
+**Expected Result:** Trả về (True, "Đặt lịch thành công")
+
+**Actual Result:** ✅ Pass
+
+---
+
+**Kịch bản:** TC-023  
+**Mục tiêu:** Check-in tạo mới bệnh nhân và visit  
+**Các bước:**
+1. Gọi checkin_patient với patient_id mới
+
+**Expected Result:**
+- Tạo Patient mới trong global_patients
+- Tạo Visit mới trong global_visits
+- Trả về (visit_obj, "Tạo bệnh nhân và lượt khám thành công")
+
+**Actual Result:** ✅ Pass
+
+---
+
+**Kịch bản:** TC-024  
+**Mục tiêu:** Xác nhận check-in đẩy vào queue  
+**Các bước:**
+1. Tạo Visit với status = ChoCheckIn
+2. Gọi confirm_checkin
+
+**Expected Result:**
+- Status chuyển thành DangKham
+- Visit được thêm vào queue của phòng
+- Trả về (visit_obj, "Check-in thành công, đã xếp vào hàng đợi")
+
+**Actual Result:** ✅ Pass
+
+---
+
+#### 2.2.9. Kiểm thử Doctor Service
+
+**Kịch bản:** TC-025  
+**Mục tiêu:** Gọi bệnh nhân tiếp theo  
+**Các bước:**
+1. Tạo Room với 2 BN trong queue
+2. Gọi call_next_patient
+
+**Expected Result:** Trả về visit_obj, phòng đánh dấu đang bận
+
+**Actual Result:** ✅ Pass
+
+---
+
+**Kịch bản:** TC-026  
+**Mục tiêu:** Kê đơn thuốc  
+**Các bước:**
+1. Tạo Visit
+2. Gọi add_prescription với medicine_list
+
+**Expected Result:**
+- Tạo Prescription trong global_prescriptions
+- Gán prescriptionID cho visit
+- Trả về (True, "Kê đơn thuốc thành công")
+
+**Actual Result:** ✅ Pass
+
+---
+
+#### 2.2.10. Kiểm thử Pharmacy Service
+
+**Kịch bản:** TC-027  
+**Mục tiêu:** Thanh toán hoàn tất  
+**Các bước:**
+1. Tạo Visit với dịch vụ và đơn thuốc
+2. Gọi process_payment
+
+**Expected Result:**
+- Trừ thuốc trong kho
+- Tạo Bill
+- Status chuyển thành DaHoanThanh
+- Trả về (True, "Thanh toán thành công", bill_obj)
+
+**Actual Result:** ✅ Pass
+
+---
+
+### 2.3. Kiểm thử BHYT tùy chỉnh (v2.3)
+
+**Kịch bản:** TC-028  
+**Mục tiêu:** BHYT giảm 40%  
+**Các bước:**
+1. Tạo Patient có BHYT
+2. Tạo Visit với service_cost = 100,000, medicine_cost = 50,000
+3. Gọi calculate_bill với discount = 40%
+
+**Expected Result:**
+- insuranceDiscount = 60,000
+- finalTotal = 90,000
+
+**Actual Result:** ✅ Pass
+
+---
+
+**Kịch bản:** TC-029  
+**Mục tiêu:** BHYT giảm 0%  
+**Các bước:**
+1. Tạo Patient có BHYT
+2. Tạo Visit với tổng 150,000đ
+3. Gọi calculate_bill với discount = 0%
+
+**Expected Result:**
+- insuranceDiscount = 0
+- finalTotal = 150,000
+
+**Actual Result:** ✅ Pass
+
+---
+
+**Kịch bản:** TC-030  
+**Mục tiêu:** BHYT giảm 100%  
+**Các bước:**
+1. Tạo Patient có BHYT
+2. Tạo Visit với tổng 150,000đ
+3. Gọi calculate_bill với discount = 100%
+
+**Expected Result:**
+- insuranceDiscount = 150,000
+- finalTotal = 0
+
+**Actual Result:** ✅ Pass
+
+---
+
+**Kịch bản:** TC-031  
+**Mục tiêu:** Truyền hasInsurance từ check-in xuống backend  
+**Các bước:**
+1. Gọi checkin_patient với has_insurance = True
+2. Kiểm tra Patient trong global_patients
+
+**Expected Result:** patient.hasInsurance = True
+
+**Actual Result:** ✅ Pass
+
+---
+
+**Kịch bản:** TC-032  
+**Mục tiêu:** 1 phòng chỉ có 1 bác sĩ (không trùng)  
+**Các bước:**
+1. Gọi generate_rooms() hoặc init_mock_data_small()
+2. Kiểm tra các phòng trong cùng khoa
+
+**Expected Result:** Mỗi phòng có doctorID khác nhau (trong cùng khoa)
+
+**Actual Result:** ✅ Pass
+
+---
+
+**Tổng kết:** 32/32 test cases passed (100%)
 
 ```python
 # Test case: BHYT giảm 40%
