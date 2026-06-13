@@ -93,6 +93,7 @@ class ReceptionService:
         appointment_date: Optional[str] = None,
         time_slot: Optional[str] = None,
         selected_doctor_id: Optional[str] = None,
+        has_insurance: bool = False,
     ) -> Tuple[Optional[models.Visit], str]:
         """
         Check-in bệnh nhân tại quầy tiếp đón.
@@ -122,6 +123,7 @@ class ReceptionService:
                     email="unknown@example.com",
                     address=address or "Không rõ",
                     bloodType=blood_type or "O+",
+                    hasInsurance=has_insurance,
                 )
                 global_state.global_patients[patient_id] = patient
 
@@ -492,7 +494,9 @@ class PharmacyService:
                 return visit
         return None
 
-    def process_payment(self, visit_id: str) -> Tuple[bool, str, Optional[models.Bill]]:
+    def process_payment(
+        self, visit_id: str, insurance_discount_percent: float = 80.0
+    ) -> Tuple[bool, str, Optional[models.Bill]]:
         """
         Xử lý thanh toán cho lượt khám.
 
@@ -520,7 +524,10 @@ class PharmacyService:
 
             # --- Tính toán hóa đơn ---
             bill = algorithms.calculate_bill(
-                visit, global_state.global_services, global_state.global_inventory
+                visit,
+                global_state.global_services,
+                global_state.global_inventory,
+                insurance_discount_percent,
             )
 
             # --- Thanh toán ---

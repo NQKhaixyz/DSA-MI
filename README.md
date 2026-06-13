@@ -389,6 +389,35 @@ DSA-MI/
 
 ## 14. Changelog - Các chức năng đã cập nhật
 
+### v2.3 - Insurance & Room Assignment Fixes (13/06/2026)
+
+#### ✅ Fix BHYT: Tùy chỉnh % giảm trừ tại chỗ
+- **Bug:** % BHYT cố định 80%, không thay đổi được
+- **Fix:** Thêm tham số `insurance_discount_percent` trong `calculate_bill()` và `process_payment()`
+- **Frontend:** Ô input BHYT để trống (không mặc định), người dùng tự nhập % muốn giảm
+- **Backend:** Áp dụng đúng % giảm trừ từ request
+
+#### ✅ Fix 1 phòng chỉ có 1 bác sĩ trực
+- **Bug:** `random.choice()` có thể chọn cùng 1 bác sĩ cho nhiều phòng trong cùng khoa
+- **Fix:** Thêm `assigned_docs` set trong `generate_rooms()` và `init_mock_data_small()` để đảm bảo mỗi phòng trong cùng khoa có bác sĩ khác nhau
+- **Fallback:** Tự động tạo bác sĩ mới nếu hết bác sĩ chưa được gán
+
+#### ✅ Thêm chức năng In hóa đơn
+- **Thêm:** Nút "In hóa đơn" sau khi thanh toán thành công
+- **Chức năng:** In chỉ phần hóa đơn (ẩn các phần khác của trang)
+
+#### ✅ Cập nhật hiển thị hóa đơn
+- **Thêm:** Tổng chi phí gốc (trước giảm)
+- **Thêm:** Giảm trừ BHYT (số tiền cụ thể)
+- **Thêm:** Trạng thái "Đã thanh toán" (badge xanh)
+- **Thêm:** Chi phí dịch vụ và chi phí thuốc riêng biệt
+
+#### ✅ Fix truyền BHYT từ check-in
+- **Bug:** `hasInsurance` không được truyền từ frontend xuống backend khi tạo bệnh nhân
+- **Fix:** Cập nhật `checkin_patient()` nhận tham số `has_insurance`, truyền vào `Patient`
+
+---
+
 ### v2.2 - Bug Fixes & UI Polish (26/05/2026)
 
 #### ✅ Fix Dashboard hiển thị sai số liệu
@@ -497,4 +526,4 @@ DSA-MI/
 ---
 
 *Đồ án môn Cấu trúc Dữ liệu & Thuật toán (DSA)*  
-*Cập nhật: 26/05/2026*
+*Cập nhật: 13/06/2026*

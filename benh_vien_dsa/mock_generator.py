@@ -265,12 +265,31 @@ def init_mock_data_small() -> None:
         docs_in_dept = [
             d_id for d_id in dept.doctorIDs if d_id in global_state.global_doctors
         ]
+        assigned_docs = set()
         for _ in range(num_rooms):
-            doc_id = (
-                random.choice(docs_in_dept)
-                if docs_in_dept
-                else algorithms.generate_id("DOC")
-            )
+            available_docs = [d for d in docs_in_dept if d not in assigned_docs]
+            if available_docs:
+                doc_id = random.choice(available_docs)
+                assigned_docs.add(doc_id)
+            else:
+                # Tạo bác sĩ mới nếu hết bác sĩ chưa được gán
+                doc = models.Doctor(
+                    doctorID=algorithms.generate_id("DOC"),
+                    fullName=_random_name(),
+                    gender=random.choice(["Nam", "Nữ"]),
+                    dob=_random_date(1960, 1995),
+                    phone=_random_phone(),
+                    email=f"doctor_{dept_name.lower()}_{algorithms.generate_id('DOC')}@hospital.vn",
+                    address=_random_address(),
+                    departmentID=dept_name,
+                    degree=random.choice(["BS", "ThS", "TS", "PGS", "GS"]),
+                    licenseNumber="".join(random.choices(string.digits, k=8)),
+                    yearsExperience=random.randint(1, 30),
+                )
+                global_state.global_doctors[doc.doctorID] = doc
+                dept.addDoctor(doc.doctorID)
+                doc_id = doc.doctorID
+                assigned_docs.add(doc_id)
             room = models.Room(
                 roomID=algorithms.generate_id("ROOM"),
                 departmentID=dept_name,
@@ -358,20 +377,25 @@ def generate_doctors(count: int = 20) -> None:
 def generate_rooms() -> None:
     """
     Với mỗi khoa trong DEPARTMENTS, tạo 1-2 phòng (Room).
-    Gán doctorID ngẫu nhiên thuộc khoa đó; nếu chưa có bác sĩ thì tạo tạm.
+    Gán doctorID ngẫu nhiên thuộc khoa đó; đảm bảo mỗi bác sĩ chỉ trực 1 phòng.
+    Nếu chưa có bác sĩ thì tạo tạm.
     """
     for dept_id in config.DEPARTMENTS:
         dept = _get_or_create_dept(dept_id)
         num_rooms = random.randint(1, 2)
 
+        docs_in_dept = [
+            d_id for d_id in dept.doctorIDs if d_id in global_state.global_doctors
+        ]
+        assigned_docs = set()
+
         for _ in range(num_rooms):
-            docs_in_dept = [
-                d_id for d_id in dept.doctorIDs if d_id in global_state.global_doctors
-            ]
-            if docs_in_dept:
-                doc_id = random.choice(docs_in_dept)
+            available_docs = [d for d in docs_in_dept if d not in assigned_docs]
+            if available_docs:
+                doc_id = random.choice(available_docs)
+                assigned_docs.add(doc_id)
             else:
-                # Tạo tạm bác sĩ nếu khoa chưa có ai
+                # Tạo tạm bác sĩ nếu khoa chưa có ai hoặc hết bác sĩ chưa gán
                 doc = models.Doctor(
                     doctorID=algorithms.generate_id("DOC"),
                     fullName=_random_name(),
@@ -388,6 +412,7 @@ def generate_rooms() -> None:
                 global_state.global_doctors[doc.doctorID] = doc
                 dept.addDoctor(doc.doctorID)
                 doc_id = doc.doctorID
+                assigned_docs.add(doc_id)
 
             room = models.Room(
                 roomID=algorithms.generate_id("ROOM"),

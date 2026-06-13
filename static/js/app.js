@@ -588,13 +588,9 @@ function renderPaymentDetail(data) {
     document.getElementById('pay-doctor').textContent = visit.doctorName || '--';
     document.getElementById('pay-dept').textContent = visit.departmentName || '--';
 
-    // BHYT: nếu có BHYT thì mặc định 80%
+    // BHYT: không đặt mặc định, để người dùng tự nhập
     const bhytInput = document.getElementById('pay-bhyt');
-    if (visit.hasInsurance) {
-        bhytInput.value = 80;
-    } else {
-        bhytInput.value = 0;
-    }
+    bhytInput.value = '';  // xóa giá trị cũ, không mặc định gì cả
 
     // Dịch vụ
     const svcBody = document.getElementById('pay-services-body');
@@ -1005,9 +1001,10 @@ function initEventHandlers() {
             const visitId = window.currentVisitId;
             if (!visitId) return showToast('Chưa có thông tin thanh toán', 'warning');
             try {
+                const insuranceDiscount = parseFloat(document.getElementById('pay-bhyt').value) || 0;
                 const data = await apiFetch('/api/pay', {
                     method: 'POST',
-                    body: JSON.stringify({ visit_id: visitId })
+                    body: JSON.stringify({ visit_id: visitId, insurance_discount: insuranceDiscount })
                 });
                 showToast('Thanh toán thành công');
                 renderInvoice(data);
@@ -1024,6 +1021,24 @@ function initEventHandlers() {
     // BHYT change recalc
     const bhytInput = document.getElementById('pay-bhyt');
     if (bhytInput) bhytInput.addEventListener('input', recalcTotal);
+
+    // In hóa đơn
+    const btnPrintInvoice = document.getElementById('btn-print-invoice');
+    if (btnPrintInvoice) {
+        btnPrintInvoice.addEventListener('click', () => {
+            const invoiceBox = document.getElementById('invoice-box');
+            if (!invoiceBox || invoiceBox.classList.contains('hidden')) {
+                showToast('Chưa có hóa đơn để in', 'warning');
+                return;
+            }
+            const printContent = invoiceBox.innerHTML;
+            const originalBody = document.body.innerHTML;
+            document.body.innerHTML = '<div class="invoice">' + printContent + '</div>';
+            window.print();
+            document.body.innerHTML = originalBody;
+            location.reload();
+        });
+    }
 }
 
 // ============================================
@@ -1041,6 +1056,11 @@ function renderInvoice(data) {
     document.getElementById('inv-dept').textContent = document.getElementById('pay-dept').textContent;
     document.getElementById('inv-doctor').textContent = document.getElementById('pay-doctor').textContent;
     document.getElementById('inv-bhyt').textContent = document.getElementById('pay-bhyt').value + '%';
+    document.getElementById('inv-service-cost').textContent = formatMoney(bill.serviceCost);
+    document.getElementById('inv-medicine-cost').textContent = formatMoney(bill.medicineCost);
+    const originalTotal = (bill.serviceCost || 0) + (bill.medicineCost || 0);
+    document.getElementById('inv-original-total').textContent = formatMoney(originalTotal);
+    document.getElementById('inv-discount').textContent = formatMoney(bill.insuranceDiscount);
     document.getElementById('inv-total').textContent = formatMoney(bill.finalTotal);
 
     const tbody = document.getElementById('inv-body');

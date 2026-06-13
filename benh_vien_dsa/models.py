@@ -654,14 +654,16 @@ class Bill:
         if self.finalTotal < 0:
             self.finalTotal = 0.0
 
-    def applyInsurance(self, has_insurance: bool) -> None:
+    def applyInsurance(
+        self, has_insurance: bool, discount_percent: float = 80.0
+    ) -> None:
         """
-        Áp dụng giảm trừ BHYT: nếu có BHYT thì giảm 80% tổng viện phí
-        (bệnh nhân chỉ phải trả 20%).
+        Áp dụng giảm trừ BHYT: nếu có BHYT thì giảm `discount_percent`% tổng viện phí.
+        Mặc định giảm 80% (bệnh nhân chỉ phải trả 20%).
         """
         total = self.serviceCost + self.medicineCost
         if has_insurance:
-            self.insuranceDiscount = total * 0.80
+            self.insuranceDiscount = total * (discount_percent / 100.0)
         else:
             self.insuranceDiscount = 0.0
         self.calculateTotal()

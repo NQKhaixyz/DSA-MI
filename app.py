@@ -360,6 +360,7 @@ def api_checkin():
             appointment_date=body.get("appointment_date"),
             time_slot=body.get("time_slot"),
             selected_doctor_id=body.get("selected_doctor_id"),
+            has_insurance=body.get("hasInsurance", False),
         )
         return jsonify(
             {
@@ -655,7 +656,10 @@ def api_pay():
     """Xử lý thanh toán cho lượt khám — giữ nguyên bản ghi trong DB."""
     try:
         body = request.get_json(force=True) or {}
-        ok, msg, bill = pharmacy_svc.process_payment(body.get("visit_id", ""))
+        insurance_discount = float(body.get("insurance_discount", 80))
+        ok, msg, bill = pharmacy_svc.process_payment(
+            body.get("visit_id", ""), insurance_discount
+        )
         return jsonify(
             {
                 "success": ok,

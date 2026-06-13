@@ -185,6 +185,7 @@ def calculate_bill(
     visit: models.Visit,
     global_services: dict[str, models.Service],
     global_inventory: dict[str, models.Medicine],
+    insurance_discount_percent: float = 80.0,
 ) -> models.Bill:
     """
     Tính toán hóa đơn cho một lượt khám dựa trên dịch vụ đã sử dụng và thuốc đã kê.
@@ -233,7 +234,7 @@ def calculate_bill(
     try:
         patient = global_state.global_patients[visit.patientID]
         if patient.hasInsurance:
-            bill.applyInsurance(True)
+            bill.applyInsurance(True, insurance_discount_percent)
     except KeyError:
         # Bệnh nhân không tồn tại, tiếp tục không áp dụng BHYT
         pass
