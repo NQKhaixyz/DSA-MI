@@ -508,6 +508,8 @@ function renderRoomQueue(data) {
         const stt = cvInfo.stt || '--';
         document.getElementById('cv-stt').textContent = stt;
         document.getElementById('cv-big-stt').textContent = stt;
+        const visitedCount = (cvInfo.visitedDepartments || []).length;
+        document.getElementById('cv-dept-count').textContent = visitedCount;
         visitBox.classList.remove('hidden');
         callBox.classList.add('hidden');
     } else {
@@ -979,10 +981,14 @@ function initEventHandlers() {
             const newDept = document.getElementById('transfer-dept').value.trim();
             if (!newDept) return showToast('Vui lòng nhập tên khoa chuyển đến', 'warning');
             try {
-                await apiFetch('/api/transfer', {
+                const data = await apiFetch('/api/transfer', {
                     method: 'POST',
                     body: JSON.stringify({ visit_id: visitId, new_dept_id: newDept })
                 });
+                if (data.success === false) {
+                    showToast(data.message || 'Chuyển khoa thất bại', 'error');
+                    return;
+                }
                 showToast('Chuyển khoa thành công');
                 document.getElementById('current-visit-box').classList.add('hidden');
                 document.getElementById('call-next-box').classList.remove('hidden');

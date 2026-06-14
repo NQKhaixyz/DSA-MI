@@ -9,9 +9,29 @@ from typing import Any, Optional
 
 def is_valid_time(visit_obj: Any) -> bool:
     """
-    Kiểm tra xem bệnh nhân có đến đúng giờ hẹn hay không.
-    Trong phiên bản này luôn trả về True (để lại cho mở rộng sau).
+    Kiểm tra xem bệnh nhân có đến đúng giờ hẹn hay không
+    và khung giờ có còn slot khả dụng (tối đa 4 người/khung giờ).
     """
+    try:
+        from . import global_state, config
+    except ImportError:
+        import global_state
+        import config
+
+    # Không phải đặt hẹn -> luôn hợp lệ
+    apt_id = getattr(visit_obj, "appointmentID", None)
+    if not apt_id:
+        return True
+
+    # Tìm appointment trong global_appointments để kiểm tra slot
+    for slot_key, slot_list in global_state.global_appointments.items():
+        for apt in slot_list:
+            if apt.appointmentID == apt_id:
+                # Nếu slot đã đầy (>= 4 người) thì không hợp lệ
+                if len(slot_list) >= config.MAX_SLOT_PER_TIMESLOT:
+                    return False
+                return True
+
     return True
 
 

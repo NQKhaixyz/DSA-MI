@@ -216,6 +216,7 @@ class ReceptionService:
             # Xếp vào phòng của khoa hiện tại (nếu có)
             first_dept_id = visit.getCurrentDepartment()
             if first_dept_id:
+                visit.visited_departments.add(first_dept_id)
                 dept = global_state.global_departments[first_dept_id]
                 algorithms.shortest_queue_first(dept, visit)
 
@@ -401,6 +402,10 @@ class DoctorService:
         """
         try:
             visit = global_state.global_visits[visit_id]
+
+            current_dept = visit.getCurrentDepartment()
+            if new_dept_id == current_dept:
+                return False, "Lỗi: Không thể chuyển sang cùng khoa đang khám!"
 
             ok, msg = algorithms.cycle_detection(visit, new_dept_id)
             if not ok:

@@ -283,6 +283,8 @@ def api_room_queue(id):
                     "patientName": patient.fullName if patient else "Không rõ",
                     "stt": room.getQueueSize()
                     + 1,  # STT = số người chờ + người đang khám
+                    "visitedDepartments": list(current_visit.visited_departments),
+                    "departmentSequence": current_visit.departmentSequence,
                 }
 
         return jsonify({"success": True, "data": queue_data})

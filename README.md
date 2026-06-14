@@ -145,9 +145,11 @@ Chặn bệnh nhân khám trùng khoa trong cùng ngày bằng Set
 1. **Tab "Phòng Khám"** → Danh sách phòng dạng Card (hiển thị số BN chờ)
 2. Click phòng → Mở chi tiết
 3. Bấm **"Gọi tiếp"** → BN vào khám
-4. **Chỉ định dịch vụ:** Chỉ hiển thị dịch vụ thuộc đúng Khoa của phòng (Fix bug hiển thị full)
-5. **Kê đơn thuốc:** Chọn thuốc từ Kho dược
-6. Bấm **"Hoàn tất khám"** → Chuyển sang `ChoThanhToan`
+4. **Box "Đang khám"** hiển thị: Tên BN, STT, **Số khoa đã khám / 3**
+5. **Chỉ định dịch vụ:** Chỉ hiển thị dịch vụ thuộc đúng Khoa của phòng (Fix bug hiển thị full)
+6. **Kê đơn thuốc:** Chọn thuốc từ Kho dược
+7. **Chuyển khoa:** Nhập mã khoa mới → Hệ thống kiểm tra: không trùng khoa đã khám, không vượt quá 3 khoa
+8. Bấm **"Hoàn tất khám"** → Chuyển sang `ChoThanhToan`
 
 ### 6.3. Quy trình thanh toán (Đã cập nhật)
 1. **Tab "Thu ngân & Kho"** → Chọn Visit từ dropdown
@@ -204,7 +206,7 @@ Hệ thống có **6 tab chức năng** trong sidebar:
 python -m unittest benh_vien_dsa.tests -v
 ```
 
-**Kết quả:** `Ran 16 tests in 0.002s — OK`
+**Kết quả:** `Ran 19 tests in 0.002s — OK`
 
 | STT | Test Case | Kết quả |
 |-----|-----------|---------|
@@ -224,6 +226,9 @@ python -m unittest benh_vien_dsa.tests -v
 | 14 | Doctor complete calls next | ✅ Pass |
 | 15 | Persistence save/load JSON | ✅ Pass |
 | 16 | Transfer department valid | ✅ Pass |
+| 17 | **is_valid_time blocks full slot** | ✅ Pass |
+| 18 | **Transfer same department blocked** | ✅ Pass |
+| 19 | **Visited departments track first dept** | ✅ Pass |
 
 ---
 
@@ -347,183 +352,26 @@ python -c "from benh_vien_dsa.mock_generator import init_mock_data_large; init_m
 2. Bấm **"Sinh dữ liệu mẫu"**
 3. ✅ Toast thành công, dữ liệu demo được tạo
 
----
+### Test 7: Giới hạn 4 người/khung giờ
+1. Tab **Quản lý Bệnh nhân** → Chọn "Có đặt lịch trước"
+2. Chọn cùng 1 bác sĩ, cùng ngày, cùng giờ
+3. Đăng ký lịch hẹn 4 lần (4 BN khác nhau) → Thành công
+4. Đăng ký lần thứ 5 → ✅ **Toast lỗi**: "Khung giờ đã đầy"
 
-## 13. Cấu trúc thư mục dự án
+### Test 8: Giới hạn 3 khoa/ngày
+1. Tab **Phòng Khám** → Gọi bệnh nhân khám
+2. ✅ Hiển thị "Khoa đã khám: 1/3" trong box "Đang khám"
+3. Chuyển khoa 2 lần (khác khoa đã khám) → Thành thành công
+4. Chuyển khoa lần thứ 3 → ✅ **Toast lỗi**: "Đã vượt quá số lượng 3 khoa/ngày"
+5. Thử chuyển sang khoa đã khám → ✅ **Toast lỗi**: "Bệnh nhân đã khám khoa này"
 
-```
-DSA-MI/
-├── app.py                       # Flask API backend (30+ REST endpoints)
-├── requirements.txt             # Dependencies: Flask, gunicorn
-├── README.md                    # Tài liệu hệ thống (file này)
-├── .gitignore                   # Git ignore rules
-│
-├── benh_vien_dsa/               # Core business logic package
-│   ├── __init__.py              # Package initializer
-│   ├── config.py                # Hằng số, Enum, danh sách khoa, Status codes
-│   ├── data_structures.py       # MultiLevelQueue (3 deque)
-│   ├── global_state.py          # 10 dict toàn cục (Singleton module)
-│   ├── models.py                # 10 Class: Patient, Visit, Doctor, ... (có to_dict/from_dict)
-│   ├── algorithms.py            # Strict Priority, SQF, Two-Pass, Cycle Detection, calculate_bill
-│   ├── services.py              # ReceptionService, DoctorService, PharmacyService
-│   ├── persistence.py           # saveData() / loadData() JSON
-│   ├── mock_generator.py        # Sinh dữ liệu mẫu 10.000+ bản ghi
-│   ├── tests.py                 # 16 Unit Test Cases
-│   ├── performance_test.py      # Benchmark 10k/50k/100k records
-│   ├── main.py                  # CLI entry point
-│   └── cli.py                   # Interactive CLI commands
-│
-├── templates/                   # Flask Jinja2 templates
-│   └── index.html               # SPA giao diện đẹp, 6 tabs
-│
-├── static/                      # Static assets
-│   ├── css/
-│   │   └── style.css            # Medical-grade responsive design
-│   └── js/
-│       └── app.js               # Vanilla JS SPA logic
-│
-└── .git/                        # Git repository
-```
-
----
-
-## 14. Changelog - Các chức năng đã cập nhật
-
-### v2.3 - Insurance & Room Assignment Fixes (13/06/2026)
-
-#### ✅ Fix BHYT: Tùy chỉnh % giảm trừ tại chỗ
-- **Bug:** % BHYT cố định 80%, không thay đổi được
-- **Fix:** Thêm tham số `insurance_discount_percent` trong `calculate_bill()` và `process_payment()`
-- **Frontend:** Ô input BHYT để trống (không mặc định), người dùng tự nhập % muốn giảm
-- **Backend:** Áp dụng đúng % giảm trừ từ request
-
-#### ✅ Fix 1 phòng chỉ có 1 bác sĩ trực
-- **Bug:** `random.choice()` có thể chọn cùng 1 bác sĩ cho nhiều phòng trong cùng khoa
-- **Fix:** Thêm `assigned_docs` set trong `generate_rooms()` và `init_mock_data_small()` để đảm bảo mỗi phòng trong cùng khoa có bác sĩ khác nhau
-- **Fallback:** Tự động tạo bác sĩ mới nếu hết bác sĩ chưa được gán
-
-#### ✅ Thêm chức năng In hóa đơn
-- **Thêm:** Nút "In hóa đơn" sau khi thanh toán thành công
-- **Chức năng:** In chỉ phần hóa đơn (ẩn các phần khác của trang)
-
-#### ✅ Cập nhật hiển thị hóa đơn
-- **Thêm:** Tổng chi phí gốc (trước giảm)
-- **Thêm:** Giảm trừ BHYT (số tiền cụ thể)
-- **Thêm:** Trạng thái "Đã thanh toán" (badge xanh)
-- **Thêm:** Chi phí dịch vụ và chi phí thuốc riêng biệt
-
-#### ✅ Fix truyền BHYT từ check-in
-- **Bug:** `hasInsurance` không được truyền từ frontend xuống backend khi tạo bệnh nhân
-- **Fix:** Cập nhật `checkin_patient()` nhận tham số `has_insurance`, truyền vào `Patient`
-
----
-
-### v2.2 - Bug Fixes & UI Polish (26/05/2026)
-
-#### ✅ Fix Dashboard hiển thị sai số liệu
-- **Bug:** Bệnh nhân đã check-in, thanh toán xong vẫn hiển thị trong "Lượt khám đang chờ"
-- **Root cause:** 
-  - Backend `api_dashboard()` đếm tất cả visit chưa `DISCHARGED` (kể cả `ChoThanhToan`, `DaHoanThanh`)
-  - `complete_examination()` không xóa visit khỏi `room.queue` khi hết chuỗi khoa
-  - Frontend `renderWaitingTable()` không lọc theo status
-- **Fix:**
-  - Chỉ đếm visit có status `ChoCheckIn`, `DangKham`, `CapCuu`
-  - Xóa visit khỏi queue + clear `assignedRoomID` khi hoàn tất khám
-  - Frontend lọc chỉ hiển thị visit đang thực sự active
-
-#### ✅ Fix Phòng khám hiển thị "0 BN chờ"
-- **Bug:** Check-in xong nhưng card phòng luôn hiển thị "0 BN đang chờ"
-- **Root cause:** `Room.to_dict()` không trả về `queueLength`, frontend đọc `undefined` → `0`
-- **Fix:** Thêm `"queueLength": self.getQueueSize()` vào `to_dict()`
-
-#### ✅ Fix "Đang khám" hiển thị `--` thay vì tên BN + STT
-- **Bug:** Box "Bệnh nhân đang khám" hiển thị: `Tên: Đang khám`, `STT: --`, `Số lớn: --`
-- **Root cause:** API `/api/rooms/<id>/queue` chỉ trả `currentVisitID`, không trả `patientName` và `stt`
-- **Fix:**
-  - Backend trả thêm `currentVisitInfo` gồm `patientName` và `stt` (tính = queueSize + 1)
-  - Frontend hiển thị đúng tên BN và số thứ tự
-
-#### ✅ Fix Check-in tạo bệnh nhân trùng lặp
-- **Bug:** Check-in 2 bệnh nhân khác nhau nhưng dashboard hiển thị cùng 1 tên
-- **Root cause:** Frontend không gửi `patient_id`, backend dùng `patient_id=""` (rỗng). Cả 2 lần đều tạo visit với `patientID=""`, trỏ đến cùng 1 patient object trong `global_patients["")]`
-- **Fix:** Backend tự động generate `patient_id` (dạng `BN_xxx`) nếu frontend không gửi
-
-#### ✅ Fix Lọc bác sĩ theo khoa trong đặt lịch
-- **Bug:** Dropdown bác sĩ trong form "Có đặt lịch trước" hiển thị **tất cả** bác sĩ trong viện, không phân biệt khoa
-- **Root cause:** `populateDoctorsSelect()` gọi `/api/doctors` (toàn bộ), không lọc theo khoa đã chọn
-- **Fix:**
-  - `populateDoctorsSelect(deptId)` giờ nhận tham số `deptId`
-  - Nếu có `deptId`, gọi `/api/departments/<deptId>/doctors` để chỉ lấy bác sĩ trong khoa đó
-  - Event listener: Khi thay đổi khoa (`reception-dept`), tự động cập nhật danh sách bác sĩ theo khoa mới
-
-#### ✅ UI/UX Improvements
-- Giữ nguyên giao diện xanh medical chuyên nghiệp (rollback từ hồng pastel)
-- Badge màu chính xác theo priority (Đỏ/Cấp cứu, Vàng/Ưu tiên, Xanh/Thường)
-
----
-
-### v2.1 - Major Refactor (25/05/2026)
-
-#### ✅ Tab "Quản lý Bệnh nhân" (Gộp Lễ tân + Bệnh nhân)
-- **Gộp 2 tab thành 1:** Layout 2 cột (Form bên trái + Table bên phải)
-- **Thêm field "Hình thức tiếp đón":**
-  - *Khám trực tiếp:* Hiện Dropdown chọn Khoa
-  - *Có đặt lịch trước:* Hiện fields Bác sĩ, Ngày/Giờ khám
-- **Bảng "Danh sách tiếp đón trong ngày":**
-  - Hiện cả BN khám trực tiếp và đặt lịch
-  - Mỗi hàng có nút **Check-in**
-  - Mặc định màu **ĐỎ** (Chưa check-in)
-  - Click → Chuyển **Xanh Lá** (Đã check-in) + Đẩy vào hàng đợi phòng khám
-- **Trạng thái sau thanh toán:** Giữ nguyên trong DB, chỉ đổi status = `DaHoanThanh`
-
-#### ✅ Tab "Phòng Khám" (Tối ưu)
-- **Danh sách phòng dạng Card:** Hiển thị Badge số BN đang chờ (VD: "Nội Tổng Quát: 3 BN đang chờ")
-- **Click phòng mới mở chi tiết:** Queue 3 mức, Gọi BN, Chỉ định DV, Kê đơn
-- **Fix bug Filter Dịch vụ:** Chỉ hiển thị dịch vụ thuộc đúng **Mã Khoa** của phòng (không hiện full toàn viện)
-
-#### ✅ Tab "Thu ngân & Kho" (Fix bugs)
-- **Fix bug tính tiền thuốc = 0đ:**
-  - Backend: Lấy đơn giá từ `global_inventory` (Kho dược)
-  - Công thức: `Tổng = Tiền DV + (SL thuốc × Đơn giá) - BHYT`
-- **Fix bug gửi đơn thuốc:** Frontend gửi `medicineID` thay vì tên thuốc
-- **Fix dropdown bị reset:** Giữ lựa chọn khi auto-refresh
-- **Hóa đơn:** Xuất chi tiết dịch vụ + thuốc + BHYT
-
-#### ✅ Backend API mới
-- `POST /api/checkin` — Tạo BN + Visit (status = ChoCheckIn)
-- `POST /api/confirm-checkin/<visit_id>` — Xác nhận check-in, xếp queue
-- `GET /api/today-visits` — Danh sách tiếp đón trong ngày
-- `GET /api/rooms/<id>/services` — Dịch vụ theo Khoa của phòng
-- `GET /api/payment-detail/<visit_id>` — Chi tiết thanh toán (gồm giá thuốc từ inventory)
-
-#### ✅ Status codes mới
-- `ChoCheckIn` — Đã tạo visit, chờ bấm nút Check-in
-- `DaHoanThanh` — Đã khám xong + thanh toán (giữ trong DB)
-
-#### ✅ Bug fixes
-- Fix `window.currentVisitId` lấy sai key (`visitId` → `visitID`)
-- Fix duplicate sidebar tabs (xóa tab Lễ tân cũ, Phòng Khám cũ)
-- Fix `global_state` undefined trong frontend
-
----
-
-### v2.0 - Web Dashboard (24/05/2026)
-- ✅ Giao diện web đẹp, chuyên nghiệp (thay cho CLI cũ)
-- ✅ 7 tab chức năng với sidebar navigation
-- ✅ Real-time auto-refresh (5 giây)
-- ✅ Toast notifications
-- ✅ Loading spinner
-- ✅ Responsive design
-
-### v1.0 - CLI Core (20/05/2026)
-- ✅ MultiLevelQueue (3 mức ưu tiên)
-- ✅ Strict Priority Scheduling
-- ✅ Shortest Queue First
-- ✅ Two-Pass Validation
-- ✅ Cycle Detection
-- ✅ Bill calculation with insurance
+### Test 9: Chuyển khoa tránh vòng lặp
+1. BN đang khám tại **Nội Tổng Quát**
+2. Thử chuyển sang **Nội Tổng Quát** (cùng khoa) → ✅ **Toast lỗi**: "Không thể chuyển sang cùng khoa đang khám"
+3. Chuyển sang **Ngoại Khoa** → ✅ **Toast xanh**: "Chuyển khoa thành công"
+4. BN chuyển sang hàng đợi phòng Ngoại Khoa
 
 ---
 
 *Đồ án môn Cấu trúc Dữ liệu & Thuật toán (DSA)*  
-*Cập nhật: 13/06/2026*
+*Cập nhật: 15/06/2026*

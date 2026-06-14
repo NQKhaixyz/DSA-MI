@@ -185,7 +185,7 @@ Hệ thống có **7 tab chức năng** trong sidebar:
 python -m unittest benh_vien_dsa.tests -v
 ```
 
-**Kết quả:** `Ran 16 tests in 0.002s — OK`
+**Kết quả:** `Ran 19 tests in 0.002s — OK`
 
 | STT | Test Case | Kết quả |
 |-----|-----------|---------|
@@ -205,6 +205,9 @@ python -m unittest benh_vien_dsa.tests -v
 | 14 | Doctor complete calls next | ✅ Pass |
 | 15 | Persistence save/load JSON | ✅ Pass |
 | 16 | Transfer department valid | ✅ Pass |
+| 17 | **is_valid_time blocks full slot** | ✅ Pass |
+| 18 | **Transfer same department blocked** | ✅ Pass |
+| 19 | **Visited departments track first dept** | ✅ Pass |
 
 ---
 
@@ -358,6 +361,32 @@ static/
 
 ## 14. Các chức năng đã cập nhật
 
+## 14. Các chức năng đã cập nhật
+
+### v2.4 - Logic Fixes & UI Improvements (15/06/2026)
+
+#### ✅ Fix Giới hạn 4 người/khung giờ
+- **Bug:** `is_valid_time()` luôn trả về `True`, không kiểm tra số lượng bệnh nhân trong slot
+- **Fix:** Implement đầy đủ: Kiểm tra `appointmentID` và đếm số lượng trong `slot_list`. Nếu slot đã đầy (>= 4 người) thì return `False`
+- **File:** `data_structures.py:10`
+
+#### ✅ Fix Giới hạn 3 khoa/ngày (UI + Backend)
+- **Bug:** Giao diện không hiển thị số lượng khoa đã khám, backend không track khoa đầu tiên
+- **Fix:** 
+  - Trả thêm `visitedDepartments` trong API queue
+  - Thêm hiển thị "Khoa đã khám: X/3" trong box "Đang khám"
+  - Track khoa đầu tiên trong `confirm_checkin`
+- **Files:** `app.py`, `index.html`, `app.js`, `services.py`
+
+#### ✅ Fix Chuyển khoa - Tránh vòng lặp & Thông báo đúng
+- **Bug 1:** Chuyển sang cùng khoa đang khám vẫn được chấp nhận
+- **Fix 1:** Thêm check `if new_dept_id == current_dept` từ chối ngay
+- **Bug 2:** Frontend hiển thị "Chuyển khoa thành công" ngay cả khi API trả lỗi
+- **Fix 2:** Kiểm tra `data.success` trước khi toast
+- **Files:** `services.py`, `app.js`
+
+---
+
 ### Web Dashboard (Mới)
 - ✅ Giao diện web đẹp, chuyên nghiệp (thay cho CLI cũ)
 - ✅ 7 tab chức năng với sidebar navigation
@@ -398,4 +427,4 @@ static/
 ---
 
 *Đồ án môn Cấu trúc Dữ liệu & Thuật toán (DSA)*
-*Cập nhật: 24/05/2026*
+*Cập nhật: 15/06/2026*
