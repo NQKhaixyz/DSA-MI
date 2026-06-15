@@ -51,6 +51,7 @@ def reset_globals() -> None:
     global_services.clear()
     global_inventory.clear()
     global_appointments.clear()
+    global_dept_timeslot_counts.clear()
     global_visits.clear()
     global_rooms.clear()
     global_prescriptions.clear()
