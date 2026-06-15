@@ -23,6 +23,10 @@ global_inventory = {}
 # Key: (doctorID, date_str, timeSlot) -> Value: list[patientID]
 global_appointments = {}
 
+# Key: (departmentID, time_slot) -> int: số bệnh nhân đang check-in và khám
+# Dùng để giới hạn tối đa MAX_SLOT_PER_TIMESLOT bệnh nhân/khoa/khung giờ
+global_dept_timeslot_counts = {}
+
 # Key: visitID (str) -> Value: đối tượng Visit
 global_visits = {}
 

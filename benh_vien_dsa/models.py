@@ -109,6 +109,7 @@ class Visit:
         self.visitDate = visitDate  # Ngày khám
         self.arrivalTime = arrivalTime  # Thời gian đến bệnh viện
         self.checkinTime = checkinTime  # Thời gian check-in (nếu có)
+        self.currentTimeSlot = ""  # Khung giờ hiện tại (ví dụ: "08:00", "10:00")
         self.severity = "BinhThuong"  # Mức độ nghiêm trọng (mặc định: Bình thường)
         self.queuePriority = (
             config.PRIORITY_WALKIN
@@ -213,6 +214,7 @@ class Visit:
             "billID": self.billID,
             "appointmentID": self.appointmentID,
             "visited_departments": list(self.visited_departments),
+            "currentTimeSlot": self.currentTimeSlot,
         }
 
     @classmethod
@@ -236,6 +238,7 @@ class Visit:
         obj.billID = data.get("billID")
         obj.appointmentID = data.get("appointmentID")
         obj.visited_departments = set(data.get("visited_departments", []))
+        obj.currentTimeSlot = data.get("currentTimeSlot", "")
         return obj
 
 
