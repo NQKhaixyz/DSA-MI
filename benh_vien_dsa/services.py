@@ -164,7 +164,7 @@ class ReceptionService:
                 is_appointment
                 and appointment_date is not None
                 and datetime.strptime(appointment_date, "%d/%m/%Y")
-                >= datetime.strptime(today_str, "%d/%m/%Y")
+                == datetime.strptime(today_str, "%d/%m/%Y")
             )
             if severity in ("3", "NguyKich", "Nguy Kịch", "nguykich"):
                 visit.queuePriority = config.PRIORITY_EMERGENCY
