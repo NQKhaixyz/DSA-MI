@@ -613,5 +613,16 @@
   </template>
 
   <script src="{{ url_for('static', filename='js/app.js', v=1) }}"></script>
+  <script>
+    // Override apiFetch để bắt lỗi từ backend (workaround cho Render cache)
+    const _origApiFetch = window.apiFetch;
+    window.apiFetch = async function(url, options) {
+      const data = await _origApiFetch(url, options);
+      if (data && data.success === false) {
+        throw new Error(data.message || 'Lỗi không xác định');
+      }
+      return data;
+    };
+  </script>
 </body>
 </html>
