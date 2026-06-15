@@ -25,6 +25,7 @@ from benh_vien_dsa.mock_generator import init_mock_data_small
 # Khởi tạo Flask app và các service
 # =============================================================================
 app = Flask(__name__)
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 reception_svc = ReceptionService()
 doctor_svc = DoctorService()
 pharmacy_svc = PharmacyService()
