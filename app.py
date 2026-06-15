@@ -26,6 +26,27 @@ from benh_vien_dsa.mock_generator import init_mock_data_small
 # =============================================================================
 app = Flask(__name__)
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
+
+
+@app.after_request
+def inject_api_fetch_override(response):
+    if response.content_type and "text/html" in response.content_type:
+        html = response.get_data(as_text=True)
+        if "</body>" in html and "_orig=window.apiFetch" not in html:
+            override = (
+                "<script>"
+                "const _orig=window.apiFetch;"
+                "window.apiFetch=async function(u,o){"
+                "var d=await _orig(u,o);"
+                'if(d&&d.success===false)throw new Error(d.message||"Lỗi");'
+                "return d;};"
+                "</script>"
+            )
+            html = html.replace("</body>", override + "</body>")
+            response.set_data(html.encode())
+    return response
+
+
 reception_svc = ReceptionService()
 doctor_svc = DoctorService()
 pharmacy_svc = PharmacyService()
