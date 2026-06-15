@@ -148,15 +148,10 @@ class ReceptionService:
             visit.severity = severity
 
             # --- Xác định mức ưu tiên ---
-            is_appointment_today = (
-                is_appointment
-                and appointment_date is not None
-                and appointment_date == today_str
-            )
             if severity in ("3", "NguyKich", "Nguy Kịch", "nguykich"):
                 visit.queuePriority = config.PRIORITY_EMERGENCY
                 visit.status = config.STATUS_EMERGENCY
-            elif is_appointment_today:
+            elif is_appointment:
                 visit.queuePriority = config.PRIORITY_APPOINTMENT
                 visit.status = config.STATUS_WAITING_CHECKIN
             elif severity in ("2", "UuTien", "Ưu tiên"):
@@ -167,7 +162,7 @@ class ReceptionService:
                 visit.status = config.STATUS_WAITING_CHECKIN
 
             # --- Set khung giờ cho lượt khám ---
-            if is_appointment_today and time_slot:
+            if is_appointment and time_slot:
                 visit.currentTimeSlot = time_slot
             else:
                 visit.currentTimeSlot = _get_time_slot(today_str)
