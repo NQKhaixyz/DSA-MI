@@ -808,10 +808,14 @@ function initEventHandlers() {
             };
             try {
                 const data = await apiFetch('/api/checkin', { method: 'POST', body: JSON.stringify(payload) });
-                showToast('Thêm bệnh nhân thành công. Mã visit: ' + (data.visit?.visitID || ''));
-                receptionForm.reset();
-                loadPatientManagement();
-                loadDashboard();
+                if (data && data.success === true) {
+                    showToast('Thêm bệnh nhân thành công. Mã visit: ' + (data.visit?.visitID || ''));
+                    receptionForm.reset();
+                    loadPatientManagement();
+                    loadDashboard();
+                } else {
+                    showToast(data?.message || 'Không thể check-in', 'error');
+                }
             } catch (err) {
                 showToast(err.message, 'error');
             }
