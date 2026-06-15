@@ -166,14 +166,6 @@ class ReceptionService:
                 and datetime.strptime(appointment_date, "%d/%m/%Y")
                 == datetime.strptime(today_str, "%d/%m/%Y")
             )
-            # Chặn check-in nếu hẹn ngày mai hoặc xa hơn
-            if (
-                is_appointment
-                and appointment_date is not None
-                and datetime.strptime(appointment_date, "%d/%m/%Y")
-                > datetime.strptime(today_str, "%d/%m/%Y")
-            ):
-                return None, "Vui lòng đến đúng ngày hẹn."
             is_appointment_valid = is_appointment_today
             if severity in ("3", "NguyKich", "Nguy Kịch", "nguykich"):
                 visit.queuePriority = config.PRIORITY_EMERGENCY
@@ -253,6 +245,15 @@ class ReceptionService:
                     None,
                     f"Lượt khám đã ở trạng thái {visit.status}, không thể check-in lại",
                 )
+
+            # Chặn check-in nếu ngày hẹn > hôm nay
+            if visit.appointmentDate:
+                apt = datetime.strptime(visit.appointmentDate, "%d/%m/%Y")
+                today = datetime.strptime(
+                    datetime.now().strftime("%d/%m/%Y"), "%d/%m/%Y"
+                )
+                if apt > today:
+                    return None, "Vui lòng đến đúng ngày hẹn."
 
             first_dept_id = visit.getCurrentDepartment()
             time_slot = None

@@ -125,6 +125,7 @@ class Visit:
         self.prescriptionID: Optional[str] = None  # ID đơn thuốc
         self.billID: Optional[str] = None  # ID hóa đơn
         self.appointmentID: Optional[str] = None  # ID lịch hẹn (nếu có)
+        self.appointmentDate: Optional[str] = None  # Ngày hẹn (để kiểm tra đến muộn)
         self.visited_departments: set[str] = (
             set()
         )  # Tập hợp các khoa đã khám (tránh lặp/cycle)
@@ -213,6 +214,7 @@ class Visit:
             "prescriptionID": self.prescriptionID,
             "billID": self.billID,
             "appointmentID": self.appointmentID,
+            "appointmentDate": self.appointmentDate,
             "visited_departments": list(self.visited_departments),
             "currentTimeSlot": self.currentTimeSlot,
         }
@@ -237,6 +239,7 @@ class Visit:
         obj.prescriptionID = data.get("prescriptionID")
         obj.billID = data.get("billID")
         obj.appointmentID = data.get("appointmentID")
+        obj.appointmentDate = data.get("appointmentDate")
         obj.visited_departments = set(data.get("visited_departments", []))
         obj.currentTimeSlot = data.get("currentTimeSlot", "")
         return obj
