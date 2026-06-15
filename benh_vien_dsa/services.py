@@ -148,10 +148,18 @@ class ReceptionService:
             visit.severity = severity
 
             # --- Xác định mức ưu tiên ---
+            is_appointment_today = (
+                is_appointment
+                and appointment_date is not None
+                and appointment_date == today_str
+            )
             if severity in ("3", "NguyKich", "Nguy Kịch", "nguykich"):
                 visit.queuePriority = config.PRIORITY_EMERGENCY
                 visit.status = config.STATUS_EMERGENCY
-            elif is_appointment or severity in ("2", "UuTien", "Ưu tiên"):
+            elif is_appointment_today:
+                visit.queuePriority = config.PRIORITY_APPOINTMENT
+                visit.status = config.STATUS_WAITING_CHECKIN
+            elif severity in ("2", "UuTien", "Ưu tiên"):
                 visit.queuePriority = config.PRIORITY_APPOINTMENT
                 visit.status = config.STATUS_WAITING_CHECKIN
             else:
@@ -159,10 +167,14 @@ class ReceptionService:
                 visit.status = config.STATUS_WAITING_CHECKIN
 
             # --- Set khung giờ cho lượt khám ---
-            if is_appointment and time_slot:
+            if is_appointment_today and time_slot:
                 visit.currentTimeSlot = time_slot
             else:
                 visit.currentTimeSlot = _get_time_slot(today_str)
+
+            # --- Lưu ngày hẹn (nếu có) để is_valid_time kiểm tra sau ---
+            if is_appointment and appointment_date:
+                visit.appointmentDate = appointment_date
 
             # --- Nếu có đặt lịch trước, lưu thông tin lịch hẹn ---
             if is_appointment and selected_doctor_id and appointment_date and time_slot:
@@ -529,6 +541,20 @@ class DoctorService:
             # Kiểm tra và chuyển sang khoa tiếp theo
             next_dept_id = visit.moveToNextDepartment()
             if next_dept_id is not None:
+                time_slot = visit.currentTimeSlot or _get_time_slot(visit.visitDate)
+                new_dept_slot_key = (next_dept_id, time_slot)
+                new_count = global_state.global_dept_timeslot_counts.get(
+                    new_dept_slot_key, 0
+                )
+                if new_count >= config.MAX_SLOT_PER_TIMESLOT:
+                    return (
+                        False,
+                        f"Khoa {next_dept_id} đã đủ {config.MAX_SLOT_PER_TIMESLOT} bệnh nhân trong khung giờ {time_slot}. Không thể chuyển tiếp.",
+                    )
+
+                global_state.global_dept_timeslot_counts[new_dept_slot_key] = (
+                    new_count + 1
+                )
                 dept = global_state.global_departments[next_dept_id]
                 algorithms.shortest_queue_first(dept, visit)
                 return True, "Hoàn tất khám khoa hiện tại, chuyển sang khoa tiếp theo"

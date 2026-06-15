@@ -325,6 +325,8 @@ class TestHospitalSystem(unittest.TestCase):
     # ---------------------------------------------------------
     def test_reception_checkin_appointment(self):
         """Check-in có đặt hẹn trước phải có queuePriority = 2 (APPOINTMENT)."""
+        from datetime import datetime
+
         reception = ReceptionService()
         dept = Department("DEPT1", "Khoa Test")
         room = Room("R1", "DEPT1", "DOC1")
@@ -353,9 +355,15 @@ class TestHospitalSystem(unittest.TestCase):
         )
         self.assertTrue(ok)
 
-        # Check-in với is_appointment=True
+        today_str = datetime.now().strftime("%d/%m/%Y")
+        # Check-in với is_appointment=True, đúng ngày hẹn
         visit, msg = reception.checkin_patient(
-            "P1", is_appointment=True, department_sequence=["DEPT1"]
+            "P1",
+            is_appointment=True,
+            department_sequence=["DEPT1"],
+            appointment_date=today_str,
+            time_slot="08:00-09:00",
+            selected_doctor_id="DOC1",
         )
         self.assertIsNotNone(visit)
         self.assertEqual(visit.queuePriority, config.PRIORITY_APPOINTMENT)

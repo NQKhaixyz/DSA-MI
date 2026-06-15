@@ -82,8 +82,8 @@ class MultiLevelQueue:
         if len(self.queues[3]) > 0:
             return self.queues[3].popleft()
 
-        # Kiểm tra hàng đợi đặt hẹn (2)
-        if len(self.queues[2]) > 0:
+        # Kiểm tra hàng đợi đặt hẹn (2) — loop để xử lý nhiều BN đến trễ
+        while len(self.queues[2]) > 0:
             candidate = self.queues[2][0]
             if is_valid_time(candidate):
                 return self.queues[2].popleft()
