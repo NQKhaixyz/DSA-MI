@@ -24,6 +24,15 @@ def _get_time_slot(visit_date: str) -> str:
     return f"{now.hour:02d}:00"
 
 
+def _normalize_date(date_str: Optional[str]) -> Optional[str]:
+    """Chuẩn hóa ngày từ YYYY-MM-DD -> DD/MM/YYYY nếu cần."""
+    if date_str and "-" in date_str and len(date_str) == 10:
+        parts = date_str.split("-")
+        if len(parts) == 3 and len(parts[0]) == 4:
+            return f"{parts[2]}/{parts[1]}/{parts[0]}"
+    return date_str
+
+
 class ReceptionService:
     """
     Dịch vụ tiếp đón: đăng ký khám online, check-in bệnh nhân,
@@ -132,6 +141,9 @@ class ReceptionService:
                     hasInsurance=has_insurance,
                 )
                 global_state.global_patients[patient_id] = patient
+
+            # --- Chuẩn hóa ngày từ frontend (YYYY-MM-DD -> DD/MM/YYYY) ---
+            appointment_date = _normalize_date(appointment_date)
 
             # --- Tạo lượt khám mới ---
             now = datetime.now()
