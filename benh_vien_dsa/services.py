@@ -18,6 +18,12 @@ except ImportError:
     import algorithms
 
 
+def _get_time_slot(visit_date: str) -> str:
+    """Tính khung giờ từ thời gian hiện tại (làm tròn xuống giờ gần nhất)."""
+    now = datetime.now()
+    return f"{now.hour:02d}:00"
+
+
 class ReceptionService:
     """
     Dịch vụ tiếp đón: đăng ký khám online, check-in bệnh nhân,
@@ -152,6 +158,12 @@ class ReceptionService:
                 visit.queuePriority = config.PRIORITY_WALKIN
                 visit.status = config.STATUS_WAITING_CHECKIN
 
+            # --- Set khung giờ cho lượt khám ---
+            if is_appointment and time_slot:
+                visit.currentTimeSlot = time_slot
+            else:
+                visit.currentTimeSlot = _get_time_slot(today_str)
+
             # --- Nếu có đặt lịch trước, lưu thông tin lịch hẹn ---
             if is_appointment and selected_doctor_id and appointment_date and time_slot:
                 apt_id = algorithms.generate_id("APT")
@@ -193,6 +205,7 @@ class ReceptionService:
         """
         Xác nhận check-in từ danh sách tiếp đón: chuyển visit sang status DangKham
         và xếp vào hàng đợi phòng khám của khoa hiện tại.
+        Kiểm tra giới hạn tối đa 4 bệnh nhân/khoa/khung giờ trước khi cho vào hàng đợi.
 
         Trả về:
             (visit_obj, message) nếu thành công.
@@ -207,6 +220,23 @@ class ReceptionService:
                     f"Lượt khám đã ở trạng thái {visit.status}, không thể check-in lại",
                 )
 
+            first_dept_id = visit.getCurrentDepartment()
+            time_slot = None
+            dept_slot_key = None
+            if first_dept_id:
+                # Kiểm tra giới hạn tối đa 4 bệnh nhân/khoa/khung giờ
+                time_slot = visit.currentTimeSlot or _get_time_slot(visit.visitDate)
+                dept_slot_key = (first_dept_id, time_slot)
+                current_count = global_state.global_dept_timeslot_counts.get(
+                    dept_slot_key, 0
+                )
+
+                if current_count >= config.MAX_SLOT_PER_TIMESLOT:
+                    return (
+                        None,
+                        f"Khoa {first_dept_id} đã đủ {config.MAX_SLOT_PER_TIMESLOT} bệnh nhân trong khung giờ {time_slot}. Vui lòng đợi khung giờ tiếp theo.",
+                    )
+
             # Chuyển trạng thái
             if visit.queuePriority == config.PRIORITY_EMERGENCY:
                 visit.status = config.STATUS_EMERGENCY
@@ -214,11 +244,16 @@ class ReceptionService:
                 visit.status = config.STATUS_ACTIVE
 
             # Xếp vào phòng của khoa hiện tại (nếu có)
-            first_dept_id = visit.getCurrentDepartment()
-            if first_dept_id:
+            if first_dept_id and dept_slot_key:
                 visit.visited_departments.add(first_dept_id)
                 dept = global_state.global_departments[first_dept_id]
                 algorithms.shortest_queue_first(dept, visit)
+
+                # Tăng đếm số lượng bệnh nhân trong khung giờ này
+                if dept_slot_key in global_state.global_dept_timeslot_counts:
+                    global_state.global_dept_timeslot_counts[dept_slot_key] += 1
+                else:
+                    global_state.global_dept_timeslot_counts[dept_slot_key] = 1
 
             return visit, "Check-in thành công, đã xếp vào hàng đợi"
 
@@ -393,6 +428,8 @@ class DoctorService:
 
         - Gọi cycle_detection(visit, new_dept_id) để kiểm tra chu trình
           và giới hạn 3 khoa/ngày.
+        - Giải phóng slot khoa cũ (giảm global_dept_timeslot_counts).
+        - Kiểm tra giới hạn 4 bệnh nhân/khoa/khung giờ ở khoa mới.
         - Thêm khoa mới vào departmentSequence, cập nhật currentDepartmentIndex.
         - Xếp visit vào phòng có hàng đợi ngắn nhất của khoa mới.
 
@@ -411,8 +448,33 @@ class DoctorService:
             if not ok:
                 return False, msg
 
+            # Kiểm tra giới hạn 4 bệnh nhân/khoa/khung giờ ở khoa mới
+            time_slot = visit.currentTimeSlot or _get_time_slot(visit.visitDate)
+            new_dept_slot_key = (new_dept_id, time_slot)
+            current_count = global_state.global_dept_timeslot_counts.get(
+                new_dept_slot_key, 0
+            )
+            if current_count >= config.MAX_SLOT_PER_TIMESLOT:
+                return (
+                    False,
+                    f"Khoa {new_dept_id} đã đủ {config.MAX_SLOT_PER_TIMESLOT} bệnh nhân trong khung giờ {time_slot}.",
+                )
+
+            # Giải phóng slot khoa cũ
+            if current_dept:
+                old_dept_slot_key = (current_dept, time_slot)
+                if old_dept_slot_key in global_state.global_dept_timeslot_counts:
+                    global_state.global_dept_timeslot_counts[old_dept_slot_key] -= 1
+                    if global_state.global_dept_timeslot_counts[old_dept_slot_key] <= 0:
+                        del global_state.global_dept_timeslot_counts[old_dept_slot_key]
+
             visit.departmentSequence.append(new_dept_id)
             visit.currentDepartmentIndex = visit.departmentSequence.index(new_dept_id)
+
+            # Tăng đếm slot khoa mới
+            global_state.global_dept_timeslot_counts[new_dept_slot_key] = (
+                global_state.global_dept_timeslot_counts.get(new_dept_slot_key, 0) + 1
+            )
 
             dept = global_state.global_departments[new_dept_id]
             algorithms.shortest_queue_first(dept, visit)
@@ -431,6 +493,7 @@ class DoctorService:
         Hoàn tất khám cho lượt khám hiện tại.
 
         - Giải phóng phòng hiện tại (currentVisitID = None).
+        - Giải phóng slot khoa hiện tại (giảm global_dept_timeslot_counts).
         - Gọi visit.moveToNextDepartment(). Nếu còn khoa tiếp theo,
           tự động xếp vào phòng của khoa đó.
         - Nếu không còn khoa, xóa visit khỏi hàng đợi phòng hiện tại (nếu còn sót),
@@ -448,6 +511,13 @@ class DoctorService:
             if current_room_id and current_room_id in global_state.global_rooms:
                 room = global_state.global_rooms[current_room_id]
                 room.currentVisitID = None
+
+                # Giải phóng slot khoa hiện tại
+                dept_slot_key = (room.departmentID, visit.currentTimeSlot)
+                if dept_slot_key in global_state.global_dept_timeslot_counts:
+                    global_state.global_dept_timeslot_counts[dept_slot_key] -= 1
+                    if global_state.global_dept_timeslot_counts[dept_slot_key] <= 0:
+                        del global_state.global_dept_timeslot_counts[dept_slot_key]
 
                 # Xóa visit khỏi hàng đợi phòng nếu còn sót (phòng trường hợp chưa được gọi)
                 try:
@@ -541,7 +611,7 @@ class PharmacyService:
             # --- Hoàn tất: giữ nguyên trong DB, chỉ đổi trạng thái ---
             visit.status = config.STATUS_COMPLETED
 
-            # --- Dọn dẹp phòng và hàng đợi ---
+            # --- Dọn dẹp phòng, hàng đợi và slot khoa ---
             for room in global_state.global_rooms.values():
                 if room.currentVisitID == visit_id:
                     room.currentVisitID = None
@@ -551,6 +621,14 @@ class PharmacyService:
                 except ValueError:
                     # Visit không còn trong hàng đợi này (đã bị pop trước đó)
                     pass
+
+            # Dọn dẹp global_dept_timeslot_counts (safety)
+            for key in list(global_state.global_dept_timeslot_counts.keys()):
+                dept_id, _ = key
+                if dept_id in visit.departmentSequence:
+                    global_state.global_dept_timeslot_counts[key] -= 1
+                    if global_state.global_dept_timeslot_counts[key] <= 0:
+                        del global_state.global_dept_timeslot_counts[key]
 
             return True, "Thanh toán thành công", bill
 

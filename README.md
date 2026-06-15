@@ -206,7 +206,7 @@ Hệ thống có **6 tab chức năng** trong sidebar:
 python -m unittest benh_vien_dsa.tests -v
 ```
 
-**Kết quả:** `Ran 19 tests in 0.002s — OK`
+**Kết quả:** `Ran 16 tests in 0.006s — OK`
 
 | STT | Test Case | Kết quả |
 |-----|-----------|---------|
@@ -226,9 +226,6 @@ python -m unittest benh_vien_dsa.tests -v
 | 14 | Doctor complete calls next | ✅ Pass |
 | 15 | Persistence save/load JSON | ✅ Pass |
 | 16 | Transfer department valid | ✅ Pass |
-| 17 | **is_valid_time blocks full slot** | ✅ Pass |
-| 18 | **Transfer same department blocked** | ✅ Pass |
-| 19 | **Visited departments track first dept** | ✅ Pass |
 
 ---
 
@@ -370,6 +367,34 @@ python -c "from benh_vien_dsa.mock_generator import init_mock_data_large; init_m
 2. Thử chuyển sang **Nội Tổng Quát** (cùng khoa) → ✅ **Toast lỗi**: "Không thể chuyển sang cùng khoa đang khám"
 3. Chuyển sang **Ngoại Khoa** → ✅ **Toast xanh**: "Chuyển khoa thành công"
 4. BN chuyển sang hàng đợi phòng Ngoại Khoa
+
+---
+
+## 14. Changelog - Các chức năng đã cập nhật
+
+### v2.5 (15/06/2026)
+
+#### Sửa lỗi giới hạn 4 bệnh nhân/khoa/khung giờ
+- **Vấn đề:** `global_dept_timeslot_counts` chỉ tăng khi check-in nhưng không bao giờ giảm, dẫn đến sau 4 bệnh nhân check-in thì không ai vào được nữa.
+- **Fix:** `complete_examination()` và `transfer_department()` giảm đếm slot khoa khi bệnh nhân rời khoa. `process_payment()` thêm safety cleanup.
+
+#### Xử lý bệnh nhân đến muộn (late arrival)
+- **Vấn đề:** Khi bệnh nhân ưu tiên (priority=2) đến muộn, `dequeue()` bỏ qua họ nhưng để họ nằm lại queue 2, chặn toàn bộ người phía sau.
+- **Fix:** `is_valid_time()` phát hiện đến muộn. `dequeue()` chuyển bệnh nhân muộn từ queue 2 sang queue 1 (vãng lai) và cập nhật priority.
+
+#### Cải tiến khác
+- Sửa lỗi LSP "possibly unbound variable" trong `confirm_checkin()`.
+
+### v2.4 (14/06/2026)
+- Sửa lỗi check-in cùng lúc nhiều bệnh nhân (global_dept_timeslot_counts tracking)
+- Cải thiện UI: Hiển thị STT đúng theo priority queue, cập nhật badge real-time
+- Sửa lỗi cycle detection khi chuyển khoa qua API
+
+### v2.3 (13/06/2026)
+- Fix insurance discount % trong tính hóa đơn
+- Fix duplicate doctor per room (mỗi phòng 1 bác sĩ)
+- Thêm nút "In hóa đơn" trong tab Thu ngân
+- Cải thiện hiển thị hóa đơn chi tiết
 
 ---
 

@@ -2,8 +2,8 @@
 
 ## Hệ Thống Quản Lý Bệnh Viện MediCare Pro
 
-**Phiên bản:** v2.3  
-**Ngày cập nhật:** 13/06/2026
+**Phiên bản:** v2.5  
+**Ngày cập nhật:** 15/06/2026
 
 ---
 
@@ -368,5 +368,5 @@ Nếu phát hiện lỗi mới, vui lòng:
 
 ---
 
-*Phiên bản: v2.3*  
-*Cập nhật: 13/06/2026*
+*Phiên bản: v2.5*  
+*Cập nhật: 15/06/2026*

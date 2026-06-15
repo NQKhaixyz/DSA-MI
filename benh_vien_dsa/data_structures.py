@@ -9,8 +9,9 @@ from typing import Any, Optional
 
 def is_valid_time(visit_obj: Any) -> bool:
     """
-    Kiểm tra xem bệnh nhân có đến đúng giờ hẹn hay không
-    và khung giờ có còn slot khả dụng (tối đa 4 người/khung giờ).
+    Kiểm tra xem bệnh nhân có đến đúng giờ hẹn hay không.
+    Nếu bệnh nhân đến sau khung giờ đã đặt thì trả về False
+    để dequeue() chuyển từ ưu tiên (2) → thường (1).
     """
     try:
         from . import global_state, config
@@ -18,19 +19,34 @@ def is_valid_time(visit_obj: Any) -> bool:
         import global_state
         import config
 
-    # Không phải đặt hẹn -> luôn hợp lệ
+    # Không phải đặt hẹn → luôn hợp lệ
     apt_id = getattr(visit_obj, "appointmentID", None)
     if not apt_id:
         return True
 
-    # Tìm appointment trong global_appointments để kiểm tra slot
-    for slot_key, slot_list in global_state.global_appointments.items():
-        for apt in slot_list:
-            if apt.appointmentID == apt_id:
-                # Nếu slot đã đầy (>= 4 người) thì không hợp lệ
-                if len(slot_list) >= config.MAX_SLOT_PER_TIMESLOT:
-                    return False
-                return True
+    # Kiểm tra bệnh nhân có đến trễ không
+    time_slot = getattr(visit_obj, "currentTimeSlot", "")
+    if time_slot:
+        try:
+            from datetime import datetime
+
+            now = datetime.now()
+            slot_str = time_slot.strip()
+            # Xử lý định dạng "HH:MM" hoặc "HH:MM-HH:MM"
+            if "-" in slot_str:
+                end_str = slot_str.split("-")[1].strip()
+            else:
+                end_str = slot_str
+            parts = end_str[:5].split(":")
+            end_hour, end_min = int(parts[0]), int(parts[1])
+            slot_end = now.replace(
+                hour=end_hour, minute=end_min, second=0, microsecond=0
+            )
+            # Nếu giờ hiện tại > giờ kết thúc slot → đến trễ
+            if now > slot_end:
+                return False
+        except (ValueError, AttributeError, IndexError):
+            pass
 
     return True
 
@@ -59,7 +75,8 @@ class MultiLevelQueue:
     def dequeue(self) -> Optional[Any]:
         """
         Lấy phần tử theo thứ tự ưu tiên: 3 -> 2 -> 1.
-        Với mức 2 (hẹn trước), nếu bệnh nhân KHÔNG đúng giờ thì bỏ qua và xét 1.
+        Với mức 2 (hẹn trước), nếu bệnh nhân KHÔNG đúng giờ thì
+        tự động chuyển xuống mức 1 (thường) và xét BN tiếp theo.
         """
         # Kiểm tra hàng đợi cấp cứu (3) trước tiên
         if len(self.queues[3]) > 0:
@@ -68,10 +85,16 @@ class MultiLevelQueue:
         # Kiểm tra hàng đợi đặt hẹn (2)
         if len(self.queues[2]) > 0:
             candidate = self.queues[2][0]
-            # Nếu bệnh nhân đến đúng giờ thì phục vụ
             if is_valid_time(candidate):
                 return self.queues[2].popleft()
-            # Nếu không đúng giờ thì bỏ qua, chuyển xuống xét mức 1
+            # Đến trễ: chuyển từ ưu tiên (2) → thường (1)
+            self.queues[2].popleft()
+            try:
+                from . import config
+            except ImportError:
+                import config
+            candidate.queuePriority = config.PRIORITY_WALKIN
+            self.queues[1].append(candidate)
 
         # Kiểm tra hàng đợi tới trực tiếp (1)
         if len(self.queues[1]) > 0:

@@ -2,8 +2,8 @@
 
 ## Hệ Thống Quản Lý Bệnh Viện MediCare Pro
 
-**Phiên bản:** v2.3  
-**Ngày cập nhật:** 13/06/2026
+**Phiên bản:** v2.5  
+**Ngày cập nhật:** 15/06/2026
 
 ---
 
@@ -429,5 +429,5 @@ Bước 1: Nhập mã Visit trong "Kích hoạt cấp cứu"
 
 ---
 
-*Hướng dẫn này được cập nhật cho phiên bản v2.3*  
+*Hướng dẫn này được cập nhật cho phiên bản v2.5*  
 *Mọi thắc mắc vui lòng liên hệ nhóm phát triển*
